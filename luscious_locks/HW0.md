@@ -1,4 +1,4 @@
-#Chapter1
+# Chapter1
 
 1. 
 ```c
@@ -68,7 +68,7 @@ int main() {
 Write is a system call inside the kernel. It provides the very basic write funcionality, which only write a sequence of bytes. Printf allows writing data in different formats easily. It is a higher-level function. Printf outputs to stdout by default. 
 
 
-#Chapter2
+# Chapter2
 
 1. 
 At least 8 bits. 
@@ -105,7 +105,7 @@ sizeof("aa") = 3
 sizeof(int)
 
 
-#Chapter3
+# Chapter3
 
 1. 
 argc and count it using a loop.
@@ -117,13 +117,13 @@ The program name.
 Somewhere else. They live above stack
 
 4. 
-sizeof(ptr) = 4
+sizeof(ptr) = 4,
 sizeof(array) = 6
 
 5. 
 stack
 
-#Chapter4
+# Chapter4
 
 1. 
 We can use malloc to allocate memory, which will live on the heap. It has to be freed after done using it. 
@@ -242,7 +242,7 @@ void destroy(Person* p) {
 }
 ```
 
-#Chapter5
+# Chapter5
 
 1. 
 getchar() can be used for getting characters from stdin and putchar() writing them to stdout.
@@ -262,8 +262,8 @@ int main(){
 }
 ```
 4. 
-#define _GNU_SOURCE
-a buffer
+#define _GNU_SOURCE, 
+a buffer, 
 capacity
 
 5. 
