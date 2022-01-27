@@ -1,12 +1,16 @@
-Chapter1
+#Chapter1
+
 1. 
+```c
 #include <unistd.h>
 int main() {
 	write(1, "Hi! My name is Zhentian Zhang\n", 30);
 	return 0;
 }
+```
 
 2. 
+```c
 #include <unistd.h>
 void write_triangle(int n);
 int main() {
@@ -24,8 +28,10 @@ void write_triangle(int n) {
 		write(2, "\n", 1);
 	}
 }
+```
 
 3. 
+```c
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -38,8 +44,10 @@ int main() {
 	close(fildes);
 	return 0;
 }
+```
 
 4. 
+```c
 #include <stdio.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -54,12 +62,14 @@ int main() {
 	close(fildes);
 	return 0;
 }
+```
 
 5. 
 Write is a system call inside the kernel. It provides the very basic write funcionality, which only write a sequence of bytes. Printf allows writing data in different formats easily. It is a higher-level function. Printf outputs to stdout by default. 
 
 
-Chapter2
+#Chapter2
+
 1. 
 At least 8 bits. 
 
@@ -95,7 +105,8 @@ sizeof("aa") = 3
 sizeof(int)
 
 
-Chapter3
+#Chapter3
+
 1. 
 argc and count it using a loop.
 
@@ -112,7 +123,8 @@ sizeof(array) = 6
 5. 
 stack
 
-Chapter4
+#Chapter4
+
 1. 
 We can use malloc to allocate memory, which will live on the heap. It has to be freed after done using it. 
 Also, we can use static variable, which will last for the entire process. 
@@ -144,14 +156,17 @@ you can't use the pointer after it has been freed.
 Set the ptr to null.
 
 10. 
+```c
 struct Person {
 	char* name;
 	int age;
 	struct Person** friends;
 };
 typedef struct Person Person;
+```
 
 11. 
+```c
 #include <string.h>
 #include <stdio.h>
 #include <stdio.h>
@@ -199,8 +214,10 @@ int main() {
 	deleteP(Sonny);
 	return 0;
 }
+```
 
 12. 
+```c
 Person* create(char* name, int age) {
 	Person* p = (Person*) malloc(sizeof(Person));
 	p->friends = malloc(sizeof(Person*) * 10);
@@ -213,16 +230,20 @@ Person* create(char* name, int age) {
 	p->age = age;
 	return p;
 }
+```
 
 13. 
+```c
 void destroy(Person* p) {
 	free(p->name);
 	free(p->friends);
 	memset(p, 0, sizeof(Person));
 	free(p);
 }
+```
 
-Chapter5
+#Chapter5
+
 1. 
 getchar() can be used for getting characters from stdin and putchar() writing them to stdout.
 
@@ -230,6 +251,7 @@ getchar() can be used for getting characters from stdin and putchar() writing th
 When using gets(), there is no way to know how large the buffer is, which might lead to overflow and overwriting things that we don't want. 
 
 3. 
+```
 int main(){
 	char* input = "Hello 5 World";
 	char hello[10];
@@ -238,13 +260,14 @@ int main(){
 	scanf(input, "%s %d %s", hello, &five, world);
 	return 0;
 }
-
+```
 4. 
 #define _GNU_SOURCE
 a buffer
 capacity
 
 5. 
+```
 #define _GNU_SOURCE
 #include <unistd.h>
 #include <fcntl.h>
@@ -265,9 +288,10 @@ int main() {
 	}
 	return 0;
 }
-
+```
 
 C Development
+
 1. 
 ```bash
 make debug
