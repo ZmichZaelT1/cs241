@@ -17,12 +17,14 @@ int main() {
     // strcpy(test,empty);
     // free(test);
 
-    // char *input = "hello\n welco\nme .1to cs241";
+    // char *input = "Try 2 NOT end with a punctuat1ON, start counting from 2 to 10: one, two, three, four";
     // char **output = camel_caser(input);
+    // char** tmp = output;
     // while (*output) {
     //     printf("output: %s\n", *output);
     //     output++;
     // }
+    // destroy(tmp);
 
     if (test_camelCaser(&camel_caser, &destroy)) {
         printf("SUCCESS\n");

@@ -9,28 +9,9 @@
 
 int main() {
 
-    char *test1 = "hello\n welco\nme .1to cs241";
-    char *test2 = " hel  lo.   we lco me t o c s24   1  ";
-    char *test3 = "hello#@. welcome#$ to cs241.";
-    char *test4 = "";
-    char *test5 = "      ";
-    char *test6 = "@#hello. welcome .to cs241";
-    char *test7 = NULL;
-
+    char *test1 = "Try 2 NOT end with a punctuat1ON, start counting from 2 to 10: one, two, three, four";
     puts("test1: \n");
     print_camelCaser(test1);
-    puts("test2: \n");
-    print_camelCaser(test2);
-    puts("test3: \n");
-    print_camelCaser(test3);
-    puts("test4: \n");
-    print_camelCaser(test4);
-    puts("test5: \n");
-    print_camelCaser(test5);
-    puts("test6: \n");
-    print_camelCaser(test6);
-    puts("test7: \n");
-    print_camelCaser(test7);
 
 
 

@@ -17,8 +17,9 @@ char **camel_caser(const char *input_str) {
     if (input_str == NULL) {
         return NULL;
     }
-
-    char* i = strdup(input_str);
+    char* i = malloc(strlen(input_str) + 1);
+    char* toFree = i;
+    strcpy(i,input_str);
     printf("copy : %s\n", i);
     adjustCase(i);
     // printf("upper and lower cases: %s\n", i);
@@ -28,53 +29,65 @@ char **camel_caser(const char *input_str) {
     int bufferSize = findBufferSize(i);
     // printf("buffer size is %d\n", bufferSize);
     char** output = malloc(sizeof(char*) * bufferSize);
+    for (int a = 0; a < bufferSize; a++) {
+        output[a] = NULL;
+    }
 
     int count = 0;
     int isValid = !ispunct(i[0]);
     int started = 0;
     int len = 0;
     int emptyStr = 0;
+    int isFirstPunc = 1;
     char *tmp;
+    if (!strcmp(i, "")) {
+        *output = NULL;
+        free(toFree);
+        return output;
+    }
     while (*i) {
-        if (isValid && !ispunct(*i)) {
-            tmp = i;
-            started = 1;
-            isValid = 0;
-            len++;
-            emptyStr = 0;
-        }
-        else if (!isValid &&started && ispunct(*i)) {
-            output[count] = malloc(sizeof(char) * (len+1));
-            output[count] = tmp;
-            started = 0;
-            count++;
-            *i = '\0';
-            isValid = 1;
-            len = 0;
-            emptyStr = 1;
-        }
-
-        else if (emptyStr && ispunct(*i)) {
-            output[count] = malloc(sizeof(char));
-            output[count] = i-1;
-            count++;
-            *i = '\0';
-            isValid = 1;
-            len = 0;
+        if (!ispunct(*(i))) {
+            if (isValid) {
+                tmp = i;
+                started = 1;
+                isValid = 0;
+                len++;
+                emptyStr = 0;
+            } else {
+                len++;
+                emptyStr = 0;
+            }
         }
         else if (ispunct(*i)) {
             *i = '\0';
+            if (!isValid &&started) {
+                output[count] = malloc(sizeof(char) * (len+1));
+                strcpy(output[count], tmp);
+                started = 0;
+                count++;
+            }
+            else if (emptyStr) {
+                output[count] = malloc(sizeof(char));
+                strcpy(output[count], i-1);
+                count++;
+            }
+            else if (isFirstPunc) {
+                output[count] = malloc(sizeof(char));
+                strcpy(output[count], i);
+                isFirstPunc = 0;
+                count++;
+            }
             isValid = 1;
             len = 0;
             emptyStr = 1;
-        }
-        else {
-            len++;
-            emptyStr = 0;
-        }
-
+        } 
+        // else {
+        //     len++;
+        //     emptyStr = 0;
+        // }
         i++;
     }
+    free(toFree);
     return output;
 }
 
@@ -83,10 +96,6 @@ void destroy(char **result) {
     if (!result) return;
     char** tmp = result;
     while (*tmp) {
-        if (!strcmp(*tmp, "")) {
-            tmp++;
-            continue;
-        };
         free(*tmp);
         tmp++;
     }
@@ -110,25 +119,29 @@ int findBufferSize(char *str) {
     int isValid = !ispunct(*str);
     int started = 0;
     int emptyStr = 0;
-
+    int isFirstPunc = 1;
     int i;
     for (i = 0; str[i]; i++) {
-        if(isValid && !ispunct(str[i])) {
-            started = 1;
-            isValid = 0;
-            emptyStr = 0;
-        }
-        else if (started && !isValid && ispunct(str[i])) {
-            started = 0;
-            count++;
-            isValid = 1;
-            emptyStr = 1;
-        }
-        else if (emptyStr && ispunct(str[i])) {
-            count++;
-            isValid = 1;
+        if(!ispunct(str[i])) {
+            if (isValid) {
+                started = 1;
+                isValid = 0;
+                emptyStr = 0;
+            }
         }
         else if (ispunct(str[i])) {
+            if (started && !isValid) {
+                started = 0;
+                count++;
+            }
+            else if(emptyStr) {
+                count++;
+                isValid = 1;
+            }
+            else if (isFirstPunc) {
+                isFirstPunc = 0;
+                count++;
+            }
             isValid = 1;
             emptyStr = 1;
         }
@@ -164,6 +177,10 @@ void adjustCase(char* str) {
         }
         else if (isspace(str[i])) {
             isFirstChar = 1;
+        } 
+        else if (isdigit(str[i])) {
+            // firstWordFounded = 0;
+            isFirstChar = 0;
         }
     }
 }

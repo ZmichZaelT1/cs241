@@ -22,9 +22,9 @@ int test_camelCaser(char **(*camelCaser)(const char *),
         return 0;
     }
     printf("check_output test 1: %d\n", check_output(expected1, result1));
-    // destroy(result1);
+    destroy(result1);
 //multiple spaces
-    char *test2 = " hel  lo.   we lco me t o c s24   1  ";
+    char *test2 = "  hel  lo.   we lco me t o c s24   1  ";
     char **result2 = camelCaser(test2);
     char *expected2[] = {"helLo", NULL};
     if (!check_output(expected2, result2)) {
@@ -32,7 +32,7 @@ int test_camelCaser(char **(*camelCaser)(const char *),
         return 0;
     }
     printf("check_output test 2: %d\n", check_output(expected2, result2));
-    // destroy(result2);
+    destroy(result2);
 
 // multiple punct
     char *test3 = "hello#@. welcome#$ to cs241.";
@@ -43,7 +43,7 @@ int test_camelCaser(char **(*camelCaser)(const char *),
         return 0;
     }
     printf("check_output test 3: %d\n", check_output(expected3, result3));
-    // destroy(result3);
+    destroy(result3);
 
 // empty
     char *test4 = "";
@@ -54,7 +54,7 @@ int test_camelCaser(char **(*camelCaser)(const char *),
         return 0;
     }
     printf("check_output test 4: %d\n", check_output(expected4, result4));
-    // destroy(result4);
+    destroy(result4);
 
 // multi empty
     char *test5 = "      ";
@@ -65,18 +65,18 @@ int test_camelCaser(char **(*camelCaser)(const char *),
         return 0;
     }
     printf("check_output test 5: %d\n", check_output(expected5, result5));
-    // destroy(result5);
+    destroy(result5);
 
 // start with punc
     char *test6 = "@hello. welcome .to cs241";
     char **result6 = camelCaser(test6);
-    char *expected6[] = {"hello", "welcome",NULL};
+    char *expected6[] = {"", "hello", "welcome",NULL};
     if (!check_output(expected6, result6)) {
         printf("failed test 6");
         return 0;
     }
     printf("check_output test 6: %d\n", check_output(expected6, result6));
-    // destroy(result6);
+    destroy(result6);
 
 // Test upper cases
     char *test7 = "HELLO WELCOME .to cs241";
@@ -87,7 +87,7 @@ int test_camelCaser(char **(*camelCaser)(const char *),
         return 0;
     }
     printf("check_output test 7: %d\n", check_output(expected7, result7));
-    // destroy(result7);
+    destroy(result7);
 
 // Test lower cases
     char *test8 = "hello welcome .to cs241";
@@ -98,7 +98,7 @@ int test_camelCaser(char **(*camelCaser)(const char *),
         return 0;
     }
     printf("check_output test 8: %d\n", check_output(expected8, result8));
-    // destroy(result8);
+    destroy(result8);
 
 // test start with numbers
     char *test9 = "12hello welcome .1to cs241";
@@ -109,7 +109,7 @@ int test_camelCaser(char **(*camelCaser)(const char *),
         return 0;
     }
     printf("check_output test 9: %d\n", check_output(expected9, result9));
-    // destroy(result9);
+    destroy(result9);
 
 // test start with numbers
     char *test10 = "hello\n welco\nme .1to cs241";
@@ -120,12 +120,11 @@ int test_camelCaser(char **(*camelCaser)(const char *),
         return 0;
     }
     printf("check_output test 10: %d\n", check_output(expected10, result10));
-    // destroy(result10);
+    destroy(result10);
 
     return 1;
 
 }
-
 
 
 int check_output(char **answer, char **result) {
@@ -154,3 +153,4 @@ int size(char **input) {
     }
     return size;
 }
+
