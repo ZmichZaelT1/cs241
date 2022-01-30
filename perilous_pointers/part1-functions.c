@@ -101,6 +101,7 @@ void six(const char *str) {
         strcat(copy, str);
         printf("%s\n", copy);
     }
+    free(copy);
 }
 
 /**
@@ -116,6 +117,7 @@ void seven() {
     for (i = 0; i < n; i++)
         printf("%f ", values[i]);
     printf("\n");
+    free(values);
 }
 
 /**
@@ -132,8 +134,10 @@ void eight(int a) {
             values[i][j] = i * j * a;
     }
 
-    for (i = 0; i < 10; i++)
+    for (i = 0; i < 10; i++) {
+        free(values[i]);
         printf("%d ", values[i][i]);
+    }
     printf("\n");
 
     free(values);
