@@ -122,6 +122,39 @@ int test_camelCaser(char **(*camelCaser)(const char *),
     printf("check_output test 10: %d\n", check_output(expected10, result10));
     destroy(result10);
 
+// test NULL
+    char *test11 = NULL;
+    char **result11 = camelCaser(test11);
+    char *expected11[] = {NULL};
+    if (!check_output(expected11, result11)) {
+        printf("failed test 11");
+        return 0;
+    }
+    printf("check_output test 11: %d\n", check_output(expected11, result11));
+    destroy(result11);
+
+// test numbers
+    char *test12 = "013Ddaf sd1Sa 4sd.s fsd56f5 sd534 s3d1.sd5f4 fde6wehb31gh .j3hg50 1j5 .";
+    char **result12 = camelCaser(test12);
+    char *expected12[] = {"013ddafSd1sa4Sd","sFsd56f5Sd534S3d1", "sd5f4Fde6wehb31gh", "j3hg501J5", NULL};
+    if (!check_output(expected12, result12)) {
+        printf("failed test 12");
+        return 0;
+    }
+    printf("check_output test 12: %d\n", check_output(expected12, result12));
+    destroy(result12);
+
+// test random super long str
+    char *test13 = "216asd@$#mkhN# kNlk#$L^mLK3$nklL#$mkl5l#$KmLnm 5# L#K#$jkl #$ljk#$4lk#$ L#$lk $3 LK$# L#$lkj$ #Lkj l#$ kj3$3kj4# #$KL34 L#$lk34j#$# KL$ 3 $3kL $$# L#$ #$ LK#$JK#Jk34kl3l34#$ KLj";
+    char **result13 = camelCaser(test13);
+    char *expected13[] = {"216asd","","","mkhn","knlk","","l","mlk3","nkll","","mkl5l","","kmlnm5","l","k","","jkl","","ljk","","4lk","","l","","lk","3Lk","","l","","lkj","","lkjL","","kj3","3kj4","","","kl34L","","lk34j","","","kl","3","3kl","","","l","","","","lk","","jk","jk34kl3l34","",NULL};
+    if (!check_output(expected13, result13)) {
+        printf("failed test 13");
+        return 0;
+    }
+    printf("check_output test 13: %d\n", check_output(expected13, result13));
+    destroy(result13);
+
     return 1;
 
 }

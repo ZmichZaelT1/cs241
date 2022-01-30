@@ -81,10 +81,6 @@ char **camel_caser(const char *input_str) {
             len = 0;
             emptyStr = 1;
         } 
-        // else {
-        //     len++;
-        //     emptyStr = 0;
-        // }
         i++;
     }
     free(toFree);
@@ -179,8 +175,10 @@ void adjustCase(char* str) {
             isFirstChar = 1;
         } 
         else if (isdigit(str[i])) {
-            // firstWordFounded = 0;
-            isFirstChar = 0;
+            if (!firstWordFounded) {
+                firstWordFounded = 1;
+                isFirstChar = 0;
+            }
         }
     }
 }

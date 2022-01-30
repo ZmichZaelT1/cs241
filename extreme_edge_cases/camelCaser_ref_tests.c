@@ -9,7 +9,7 @@
 
 int main() {
 
-    char *test1 = "Try 2 NOT end with a punctuat1ON, start counting from 2 to 10: one, two, three, four";
+    char *test1 = "216asd@$#mkhN# kNlk#$L^mLK3$nklL#$mkl5l#$KmLnm 5# L#K#$jkl #$ljk#$4lk#$ L#$lk $3 LK$# L#$lkj$ #Lkj l#$ kj3$3kj4# #$KL34 L#$lk34j#$# KL$ 3 $3kL $$# L#$ #$ LK#$JK#Jk34kl3l34#$ KLj";
     puts("test1: \n");
     print_camelCaser(test1);
 
