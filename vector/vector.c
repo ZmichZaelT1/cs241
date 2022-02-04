@@ -93,6 +93,7 @@ vector *vector_create(copy_constructor_type copy_constructor,
     // ready.
     if (copy_constructor && destructor && default_constructor) {
         vector* v = malloc(sizeof(vector));
+        if (!v) return NULL;
         v->array = malloc(sizeof(void*) * INITIAL_CAPACITY);
         v->capacity = INITIAL_CAPACITY;
         v->copy_constructor = copy_constructor;
@@ -128,8 +129,8 @@ vector *vector_create(copy_constructor_type copy_constructor,
 void vector_destroy(vector *this) {
     assert(this);
     // your code here
-    for (size_t i = 0; i <= this->size; i++) {
-        free(this->array[i]);
+    for (size_t i = 0; i < this->size; i++) {
+        this->destructor(this->array[i]);
     }
     free(this->array);
     free(this);
@@ -159,22 +160,23 @@ void vector_resize(vector *this, size_t n) {
         for (size_t i = n; i < this->size; i++) {
             this->destructor(this->array[i]);
         }
-        this->size = n;
+        // this->size = n;
     }
     else if (n < this->capacity) {
-        for (size_t i = this->size; i < this->capacity; i++) {
+        for (size_t i = this->size; i <= n; i++) {
             this->array[i] = this->default_constructor();
         }
-        this->size = n;
+        // this->size = n;
     }
-    else if (n > this->capacity) {
+    else if (n >= this->capacity) {
         this->capacity = get_new_capacity(n);
         this->array = realloc(this->array, sizeof(void*) * this->capacity);
         for (size_t i = this->size; i < n; i++) {
             this->array[i] = this->default_constructor();
         }
-        this->size = n;
-        }
+        // this->size = n;
+    }
+    this->size = n;
     return;
 }
 
@@ -218,7 +220,6 @@ void *vector_get(vector *this, size_t position) {
     assert(this);
     // your code here
     assert(position < this->size);
-    assert(position < this->size);
     return this->array[position];
 }
 
@@ -254,7 +255,7 @@ void vector_push_back(vector *this, void *element) {
 void vector_pop_back(vector *this) {
     assert(this);
     // your code here
-    free(this->array[this->size]);
+    this->destructor(this->array[this->size-1]);
     this->size--;
 }
 
@@ -287,6 +288,7 @@ void vector_erase(vector *this, size_t position) {
 
 void vector_clear(vector *this) {
     assert(this);
+    assert(this->array);
     for (size_t i = 0; i < this->size; i++) {
         this->destructor(this->array[i]);
     }

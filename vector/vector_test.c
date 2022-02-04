@@ -48,10 +48,52 @@ int main(int argc, char *argv[]) {
     assert(*(int*)vector_get(v2, 2) == 2); 
 
 // test resize greater
+    vector_resize(v2, 16);
+    assert(vector_size(v2) == 16);
+    assert(vector_capacity(v2) == 16);
+    assert(!vector_empty(v2));
+    assert(*(int*)vector_get(v2, 2) == 2); 
 
+    vector_resize(v2, 17);
+    assert(vector_size(v2) == 17);
+    assert(vector_capacity(v2) == 32);
+    assert(!vector_empty(v2));
+    assert(*(int*)vector_get(v2, 2) == 2);
+
+// test resize 0
+    vector_resize(v2,0);
+    assert(vector_size(v2) == 0);
+    assert(vector_capacity(v2) == 32);
+    assert(vector_empty(v2));
+
+// test erase
+    vector* v3 = int_vector_create();
+    int c[] = {0,1,2,3};
+    for (int i = 0; i < 4; i++) vector_push_back(v3, c+i);
+    vector_erase(v3, 3);
+    assert(vector_size(v3) == 3);
+    assert(vector_capacity(v3) == 8);
+    assert(*(int*)vector_get(v3, 2) == 2);
+    vector_erase(v3, 2);
+    vector_erase(v3, 1);
+    vector_erase(v3, 0);
+    assert(vector_size(v3) == 0);
+    assert(vector_capacity(v3) == 8);
+    assert(vector_empty(v3));
+
+// test clear
+    vector* v4 = int_vector_create();
+    int d[] = {0,1,2,3};
+    for (int i = 0; i < 4; i++) vector_push_back(v4, d+i);
+    vector_clear(v4);
+    assert(vector_empty(v4));
+    assert(vector_capacity(v4) == 8);
 
     vector_destroy(v1);
     vector_destroy(v2);
+    vector_destroy(v3);
+    vector_destroy(v4);
+
 
     return 0;
 }
