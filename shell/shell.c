@@ -28,13 +28,13 @@ static char *file_path;
 void load_file(char*, vector*);
 void print_vector(vector*);
 void run_process(char*, int);
-char** parse_string(char*);
+char** parse_string(char*, char*);
 void cd(char*);
 // void run_file_process(char*);
 void write_vec_to_file(vector* his_vec, char* file_path);
 void print_history();
 char* find_his(char*);
-
+int contains_logic(char*);
 
 int shell(int argc, char *argv[]) {
     // TODO: This is the entry point for your shell.
@@ -44,7 +44,7 @@ int shell(int argc, char *argv[]) {
     todo_vec = string_vector_create();
 
     pid = getpid();
-    int user_input_result;
+    int user_input_result = 1;
     size_t buffer_size;
     char *buffer = NULL;
     int arg;
@@ -61,16 +61,18 @@ int shell(int argc, char *argv[]) {
         }
     }
 
-    while (count != 100) {
+    while (user_input_result) {
         // print_vector(todo_vec);
         if (!vector_empty(todo_vec)) {
             for (size_t i = 0; i < vector_size(todo_vec); i++) {
                 run_process((char*) vector_get(todo_vec, i), 1);
             }
             vector_clear(todo_vec);
-            getcwd(cwd, sizeof(cwd));
-            print_prompt(cwd, pid);
-            user_input_result = getline(&buffer, &buffer_size, stdin);
+            exit(0);
+            // getcwd(cwd, sizeof(cwd));
+            // print_prompt(cwd, pid);
+            // user_input_result = getline(&buffer, &buffer_size, stdin);
+            // if (user_input_result == -1) exit(0);
         } else {
             if (buffer) {
                 buffer[strlen(buffer)-1] = 0;
@@ -79,8 +81,9 @@ int shell(int argc, char *argv[]) {
 
             getcwd(cwd, sizeof(cwd));
             print_prompt(cwd, pid);
-            user_input_result = getline(&buffer, &buffer_size, stdin);
         }
+        user_input_result = getline(&buffer, &buffer_size, stdin);
+        if (user_input_result == -1) exit(0);
         count++;
     }
     return 0;
@@ -113,8 +116,14 @@ void run_process(char* process_args, int f) {
 
     char *arg = process_args;
 
-    if (process_args[0] == '#') {
-        int nth = atoi(process_args+1);
+    // if (contains_logic(arg)) {
+    //     vector_push_back(his_vec, arg);
+    //     if (h) write_vec_to_file(his_vec, file_path);
+    //     return;
+    // }
+
+    if (arg[0] == '#') {
+        int nth = atoi(arg+1);
         if (nth < (int) vector_size(his_vec)) {
             arg = (char*) vector_get(his_vec, nth);
         } else {
@@ -122,15 +131,14 @@ void run_process(char* process_args, int f) {
             return;
         }
     }
-    if (process_args[0] == '!' && strcmp(process_args, "!history")) {
-        arg = find_his(process_args+1);
+    if (arg[0] == '!' && strcmp(arg, "!history")) {
+        arg = find_his(arg+1);
         if (!arg) return;
     }
 
-    char** argv = parse_string(arg);
+    char** argv = parse_string(arg, " ");
 
     vector_push_back(his_vec, arg);
-    if (h) write_vec_to_file(his_vec, file_path);
     getcwd(cwd, sizeof(cwd));
     if (f) {print_prompt(cwd, pid); print_command(arg);}
 
@@ -143,6 +151,8 @@ void run_process(char* process_args, int f) {
         print_history();
         return;
     }
+    if (h) write_vec_to_file(his_vec, file_path);
+
     fflush(stdin);
     pid_t child = fork();
     if (child == -1) print_fork_failed();
@@ -173,10 +183,10 @@ void cd(char* dest) {
     if (s) print_no_directory(dest);
 }
 
-char** parse_string(char* str) {
+char** parse_string(char* str, char* deli) {
     char *tmp = strdup(str); // free this
     char *tmptmp = tmp;
-    char *split = strtok(tmptmp, " ");
+    char *split = strtok(tmptmp, deli);
     int count = 1;
     for (size_t i = 0; i < strlen(str); i++) {
         if (str[i] == ' ') count++;
@@ -184,7 +194,7 @@ char** parse_string(char* str) {
     char **ret = calloc(count+1, sizeof(char*));
     for (int i = 0; i < count; i++) {
         ret[i] = strdup(split);
-        split = strtok(NULL, " ");
+        split = strtok(NULL, deli);
     }
     free(tmp);
     return ret;
@@ -227,3 +237,24 @@ char* find_his(char* prefix) {
     print_no_history_match();
     return NULL;
 }
+
+// int contains_logic(char* arg) {
+//     if (strstr(arg, "&&")) {run_and(arg); return 1;}
+//     if (strstr(arg, "||")) {run_or(arg); return 1;}
+//     if (strstr(arg, ";")) {run_sep(arg); return 1;}
+//     return 0;
+// }
+
+// void run_and(char* arg) {
+
+//     char** argv = parse_string(arg, "&&");
+//     char* process1 = argv[0];
+//     char* process2 = argv[1];
+
+//     process1[strlen(process1) - 1] = '\0';
+//     if (process2[0] == ' ') strcpy(process2, process2+1);
+
+//     char** process1_argv = parse_string(process1, " ");
+//     char** process2_argv = parse_string(process2, " ");
+
+// }
