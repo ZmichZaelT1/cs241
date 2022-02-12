@@ -24,6 +24,7 @@ static char cwd[PATH_MAX];
 static int pid;
 static int h = 0;
 static char *file_path;
+static int command_failed = 0;
 
 void load_file(char*, vector*);
 void print_vector(vector*);
@@ -35,6 +36,10 @@ void write_vec_to_file(vector* his_vec, char* file_path);
 void print_history();
 char* find_his(char*);
 int contains_logic(char*);
+void run_and(char*);
+char** splitString(char*, char*);
+void run_or(char*);
+int run(char*, char**);
 
 int shell(int argc, char *argv[]) {
     // TODO: This is the entry point for your shell.
@@ -113,19 +118,25 @@ void load_file(char *file, vector* vec) {
 
 void run_process(char* process_args, int f) {
     if (!strcmp(process_args, "exit")) exit(0);
-
+    if (!strcmp(process_args, "")) {
+        vector_push_back(his_vec, process_args);
+        if (h) write_vec_to_file(his_vec, file_path);
+        return;
+    }
     char *arg = process_args;
 
-    // if (contains_logic(arg)) {
-    //     vector_push_back(his_vec, arg);
-    //     if (h) write_vec_to_file(his_vec, file_path);
-    //     return;
-    // }
+    if (contains_logic(arg)) {
+        vector_push_back(his_vec, arg);
+        if (h) write_vec_to_file(his_vec, file_path);
+        return;
+    }
 
     if (arg[0] == '#') {
         int nth = atoi(arg+1);
         if (nth < (int) vector_size(his_vec)) {
             arg = (char*) vector_get(his_vec, nth);
+            run_process(arg, f);
+            return;
         } else {
             print_invalid_index();
             return;
@@ -134,6 +145,8 @@ void run_process(char* process_args, int f) {
     if (arg[0] == '!' && strcmp(arg, "!history")) {
         arg = find_his(arg+1);
         if (!arg) return;
+        run_process(arg, f);
+        return;
     }
 
     char** argv = parse_string(arg, " ");
@@ -153,20 +166,25 @@ void run_process(char* process_args, int f) {
     }
     if (h) write_vec_to_file(his_vec, file_path);
 
-    fflush(stdin);
-    pid_t child = fork();
-    if (child == -1) print_fork_failed();
+    // fflush(stdin);
+    // pid_t child = fork();
+    // if (child == -1) print_fork_failed();
 
-    if (!child) { // child running
-        print_command_executed(getpid());
-        execvp(argv[0], argv);
-        print_exec_failed(arg);
-    } else {
-        int s;
-        int ws = waitpid(child, &s, 0);
-        if (ws == -1) print_wait_failed();
-        if (!WIFEXITED(s) && WEXITSTATUS(s) != 0) print_exec_failed(process_args);
-    }
+    // if (!child) { // child running
+    //     print_command_executed(getpid());
+    //     execvp(argv[0], argv);
+    //     print_exec_failed(arg);
+    //     exit(1);
+    // } else {
+    //     int s;
+    //     int ws = waitpid(child, &s, 0);
+    //     if (ws == -1) print_wait_failed();
+    //     if (WIFEXITED(s) && WEXITSTATUS(s) != 0) {
+    //         // print_exec_failed(process_args);
+    //         puts("failed");
+    //     }
+    // }
+    run(argv[0], argv);
 }
 
 void write_vec_to_file(vector* his_vec, char* file_path) {
@@ -217,7 +235,7 @@ char* find_his(char* prefix) {
         return vector_get(his_vec, vector_size(his_vec)-1);
     }
     size_t pre_length = strlen(prefix);
-    for (size_t i = vector_size(his_vec)-1; i >= 0; i--) {
+    for (int i = (int)vector_size(his_vec)-1; i >= 0; i--) {
         int founded = 1;
         char* his = (char*) vector_get(his_vec, i);
         size_t his_length = strlen(his);
@@ -238,23 +256,293 @@ char* find_his(char* prefix) {
     return NULL;
 }
 
-// int contains_logic(char* arg) {
-//     if (strstr(arg, "&&")) {run_and(arg); return 1;}
-//     if (strstr(arg, "||")) {run_or(arg); return 1;}
-//     if (strstr(arg, ";")) {run_sep(arg); return 1;}
-//     return 0;
+int contains_logic(char* arg) {
+    if (strstr(arg, "&&")) {
+        run_and(arg); 
+        return 1;
+    }
+    if (strstr(arg, "||")) {run_or(arg); return 1;}
+    // if (strstr(arg, ";")) {run_sep(arg); return 1;}
+    return 0;
+}
+
+void run_or(char* arg) {
+    char** argv = splitString(arg, "||");
+    char* process1 = argv[0];
+    char* process2 = argv[1];
+
+    process1[strlen(process1) - 1] = '\0';
+    if (process2[0] == ' ') strcpy(process2, process2+1);
+
+    char** process1_argv = parse_string(process1, " ");
+    char** process2_argv = parse_string(process2, " ");
+
+// cd || cd
+    if (!strcmp(process1_argv[0], "cd") && !strcmp(process2_argv[0], "cd")) {
+        int scd1 = chdir(process1_argv[1]);
+        if (scd1) {
+            print_no_directory(process1_argv[1]);
+            int scd2 = chdir(process2_argv[1]);
+            if (scd2) {
+                print_no_directory(process2_argv[1]);
+                return;
+            }
+            return;
+        }
+        return;
+    } 
+// cd || others
+    else if (!strcmp(process1_argv[0], "cd")) {
+        int scd = chdir(process1_argv[1]);
+        if (scd) {
+            print_no_directory(process1_argv[1]);
+
+            fflush(stdin);
+            pid_t child = fork();
+            if (child == -1) print_fork_failed();
+
+            if (!child) { // child running
+                print_command_executed(getpid());
+                execvp(process2_argv[0], process2_argv);
+                print_exec_failed(process2);
+            } else {
+                int s;
+                int ws = waitpid(child, &s, 0);
+                if (ws == -1) print_wait_failed();
+                if (WIFEXITED(s) && WEXITSTATUS(s) != 0) print_exec_failed(process2);
+            }
+            return;
+        }
+        return;
+    } 
+// others && cd
+    else if (!strcmp(process2_argv[0], "cd")) {
+        fflush(stdin);
+        pid_t child = fork();
+        if (child == -1) print_fork_failed();
+
+        if (!child) { // child running
+            print_command_executed(getpid());
+            execvp(process1_argv[0], process1_argv);
+            print_exec_failed(process1);
+        } else {
+            int s;
+            int ws = waitpid(child, &s, 0);
+            if (ws == -1) print_wait_failed();
+            if (WIFEXITED(s) && WEXITSTATUS(s) != 0) {
+                print_exec_failed(process1);
+                int scd = chdir(process2_argv[1]);
+                if (scd) {
+                    print_no_directory(process2_argv[1]);
+                    return;
+                }
+                return;
+            }
+            return;
+        }
+    } 
+// others  && others
+    else {
+        fflush(stdin);
+        pid_t child = fork();
+        if (child == -1) print_fork_failed();
+
+        if (!child) { // child running
+            print_command_executed(getpid());
+            execvp(process1_argv[0], process1_argv);
+            print_exec_failed(process1);
+        } else {
+            int s;
+            int ws = waitpid(child, &s, 0);
+            if (ws == -1) print_wait_failed();
+            if (WIFEXITED(s) && WEXITSTATUS(s) != 0) {
+                print_exec_failed(process2);
+                fflush(stdin);
+                pid_t child = fork();
+                if (child == -1) print_fork_failed();
+
+                if (!child) { // child running
+                    print_command_executed(getpid());
+                    execvp(process2_argv[0], process2_argv);
+                    print_exec_failed(process2);
+                } else {
+                    int s;
+                    int ws = waitpid(child, &s, 0);
+                    if (ws == -1) print_wait_failed();
+                    if (WIFEXITED(s) && WEXITSTATUS(s) != 0) print_exec_failed(process2);
+                }
+                return;
+            }
+            return;
+        }
+    }
+}
+
+
+void run_and(char* arg) {
+    char** argv = splitString(arg, "&&");
+    char* process1 = argv[0];
+    char* process2 = argv[1];
+
+    process1[strlen(process1) - 1] = '\0';
+    if (process2[0] == ' ') strcpy(process2, process2+1);
+
+    char** process1_argv = parse_string(process1, " ");
+    char** process2_argv = parse_string(process2, " ");
+
+// cd && cd
+    if (!strcmp(process1_argv[0], "cd") && !strcmp(process2_argv[0], "cd")) {
+        int scd1 = chdir(process1_argv[1]);
+        if (scd1) {
+            print_no_directory(process1_argv[1]);
+            return;
+        } else {
+            int scd2 = chdir(process2_argv[1]);
+            if (scd2) {
+                print_no_directory(process2_argv[1]);
+                return;
+            }
+        }
+    } 
+// cd && others
+    else if (!strcmp(process1_argv[0], "cd")) {
+        int scd = chdir(process1_argv[1]);
+        if (scd) {
+            print_no_directory(process1_argv[1]);
+            return;
+        } else {
+            fflush(stdin);
+            pid_t child = fork();
+            if (child == -1) print_fork_failed();
+
+            if (!child) { // child running
+                print_command_executed(getpid());
+                execvp(process2_argv[0], process2_argv);
+                print_exec_failed(process2);
+            } else {
+                int s;
+                int ws = waitpid(child, &s, 0);
+                if (ws == -1) print_wait_failed();
+                if (WIFEXITED(s) && WEXITSTATUS(s) != 0) print_exec_failed(process2);
+            }
+        }
+    } 
+// others && cd
+    else if (!strcmp(process2_argv[0], "cd")) {
+        fflush(stdin);
+        pid_t child = fork();
+        if (child == -1) print_fork_failed();
+
+        if (!child) { // child running
+            print_command_executed(getpid());
+            execvp(process1_argv[0], process1_argv);
+            print_exec_failed(process1);
+        } else {
+            int s;
+            int ws = waitpid(child, &s, 0);
+            if (ws == -1) print_wait_failed();
+            if (WIFEXITED(s) && WEXITSTATUS(s) != 0) {
+                print_exec_failed(process1);
+                return;
+            } else {
+                int scd = chdir(process2_argv[1]);
+                if (scd) {
+                    print_no_directory(process2_argv[1]);
+                    return;
+                }
+            }
+        }
+    } 
+// others  && others
+    else {
+        fflush(stdin);
+        pid_t child = fork();
+        if (child == -1) print_fork_failed();
+
+        if (!child) { // child running
+            print_command_executed(getpid());
+            execvp(process1_argv[0], process1_argv);
+            print_exec_failed(process1);
+        } else {
+            int s;
+            int ws = waitpid(child, &s, 0);
+            if (ws == -1) print_wait_failed();
+            if (WIFEXITED(s) && WEXITSTATUS(s) != 0) {
+                print_exec_failed(process2);
+                return;
+            } else {
+                fflush(stdin);
+                pid_t child = fork();
+                if (child == -1) print_fork_failed();
+
+                if (!child) { // child running
+                    print_command_executed(getpid());
+                    execvp(process2_argv[0], process2_argv);
+                    print_exec_failed(process2);
+                } else {
+                    int s;
+                    int ws = waitpid(child, &s, 0);
+                    if (ws == -1) print_wait_failed();
+                    if (WIFEXITED(s) && WEXITSTATUS(s) != 0) print_exec_failed(process2);
+                }
+            }
+        }
+    }
+}
+
+// char** parse_string(char* str, char* deli) {
+//     char *tmp = strdup(str); // free this
+//     char *tmptmp = tmp;
+//     char *split = strtok(tmptmp, deli);
+//     int count = 1;
+//     for (size_t i = 0; i < strlen(str); i++) {
+//         if (!strcmp(str[i], deli)) count++;
+//     }
+//     char **ret = calloc(count+1, sizeof(char*));
+//     for (int i = 0; i < count; i++) {
+//         ret[i] = strdup(split);
+//         split = strtok(NULL, deli);
+//     }
+//     free(tmp);
+//     return ret;
 // }
 
-// void run_and(char* arg) {
+char** splitString(char* str, char* deli) {
+    char **ret = calloc(3, sizeof(char*));
+    char *tmp = strdup(str);
 
-//     char** argv = parse_string(arg, "&&");
-//     char* process1 = argv[0];
-//     char* process2 = argv[1];
+    char* tok = strtok(tmp, deli);
+    ret[0] = strdup(tok);
+    tok = strtok(NULL, deli);
+    ret[1] = strdup(tok);
+    free(tmp);
+    return ret;
+}
 
-//     process1[strlen(process1) - 1] = '\0';
-//     if (process2[0] == ' ') strcpy(process2, process2+1);
-
-//     char** process1_argv = parse_string(process1, " ");
-//     char** process2_argv = parse_string(process2, " ");
-
-// }
+// failed: 0,  success: 1
+int run(char*a, char** argv) {
+    fflush(stdin);
+    fflush(stdout);
+    pid_t child = fork();
+    if (child == -1) {
+        print_fork_failed();
+        command_failed = 1;
+        return 0;
+    }
+    if (!child) {
+        print_command_executed(getpid());
+        execvp(a, argv);
+        print_exec_failed(a);
+        exit(1);
+    } else {
+        int s;
+        int ws = waitpid(child, &s, 0);
+        if (ws == -1) print_wait_failed();
+        if (WIFEXITED(s) && WEXITSTATUS(s) != 0) {
+            // print_exec_failed(a);
+            command_failed = 1;
+            return 0;
+        }
+    }
+    return 1;
+}
