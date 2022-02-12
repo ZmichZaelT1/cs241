@@ -144,6 +144,7 @@ void run_process(char* process_args, int f) {
         int nth = atoi(arg+1);
         if (nth < (int) vector_size(his_vec)) {
             arg = (char*) vector_get(his_vec, nth);
+            print_command(arg);
             run_process(arg, f);
             return;
         } else {
@@ -154,6 +155,7 @@ void run_process(char* process_args, int f) {
     if (arg[0] == '!' && strcmp(arg, "!history")) {
         arg = find_his(arg+1);
         if (!arg) return;
+        print_command(arg);
         run_process(arg, f);
         return;
     }
