@@ -27,7 +27,7 @@ static char *file_path;
 static int command_failed = 0;
 
 void load_file(char*, vector*);
-void print_vector(vector*);
+// void print_vector(vector*);
 void run_process(char*, int);
 char** parse_string(char*, char*);
 int cd(char*);
@@ -121,8 +121,6 @@ void load_file(char *file, vector* vec) {
             print_script_file_error();
             exit(1);
         }
-
-        printf("file : %s\n", file_path);
         return;
     }
 }
@@ -218,11 +216,11 @@ char** parse_string(char* str, char* deli) {
     return ret;
 }
 
-void print_vector(vector* vec) {
-    for (size_t i = 0; i < vector_size(vec); i++) {
-        printf("%zuth element in vector is: %s\n", i, (char*) vector_get(vec, i));
-    }
-}
+// void print_vector(vector* vec) {
+//     for (size_t i = 0; i < vector_size(vec); i++) {
+//         printf("%zuth element in vector is: %s\n", i, (char*) vector_get(vec, i));
+//     }
+// }
 
 void print_history() {
     for (size_t i = 0; i < vector_size(his_vec); i++) {
