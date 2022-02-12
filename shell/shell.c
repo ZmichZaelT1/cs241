@@ -41,10 +41,11 @@ char** splitString(char*, char*);
 void run_or(char*);
 int run(char*, char**);
 void run_sep(char*);
+void handle_sig();
 
 int shell(int argc, char *argv[]) {
     // TODO: This is the entry point for your shell.
-    if (argc >3) {print_usage(); exit(1);};
+    if (argc != 3 && argc != 1) {print_usage(); exit(1);};
 
     his_vec = string_vector_create();
     todo_vec = string_vector_create();
@@ -56,14 +57,17 @@ int shell(int argc, char *argv[]) {
     int arg;
     int count = 0;
 
+    signal(SIGINT, handle_sig);
 
     if((arg=getopt(argc, argv,":f:h:")) != -1) {
         if (arg == 'h') {
-            load_file(optarg, his_vec);
             h=1;
+            load_file(optarg, his_vec);
         } else if (arg == 'f') {
             load_file(optarg, todo_vec);
-
+        } else {
+            print_usage();
+            exit(1);
         }
     }
 
@@ -91,6 +95,9 @@ int shell(int argc, char *argv[]) {
     return 0;
 }
 
+void handle_sig() {
+    return;
+}
 
 void load_file(char *file, vector* vec) {
     file_path = get_full_path(file);
@@ -107,8 +114,15 @@ void load_file(char *file, vector* vec) {
         }
         fclose(fd);
     } else {
-        print_script_file_error();
-        fclose(fd);
+        if (h) {
+            FILE *fd_new = fopen(file, "w");
+            fclose(fd_new);
+        } else {
+            print_script_file_error();
+            exit(1);
+        }
+
+        printf("file : %s\n", file_path);
         return;
     }
 }
@@ -154,6 +168,7 @@ void run_process(char* process_args, int f) {
 
     if (!strcmp(argv[0], "cd")) {
         cd(argv[1]);
+        if (h) write_vec_to_file(his_vec, file_path);
         return;
     }
     if (!strcmp(argv[0], "!history")) {
@@ -173,6 +188,7 @@ void write_vec_to_file(vector* his_vec, char* file_path) {
     for(; i < vector_size(his_vec); i++){
         fprintf(fd, "%s\n", (char*) vector_get(his_vec, i));
     }
+    fclose(fd);
 }
 
 // failed: 0,  success: 1
