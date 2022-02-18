@@ -20,6 +20,7 @@ extern char *optarg;
 extern int optind, opterr, optopt;
 static vector *his_vec;
 static vector *todo_vec;
+static vector *processes_vec;
 static char cwd[PATH_MAX];
 static int pid;
 static int h = 0;
@@ -39,11 +40,14 @@ int contains_logic(char*);
 void run_and(char*);
 char** splitString(char*, char*);
 void run_or(char*);
-int run(char*, char**);
+int run(char*, char**, char*);
 void run_sep(char*);
 void handle_sig();
 int check_background(char**, int*);
 void child_handler(int);
+void run_ps();
+process* add_process(char*, pid_t);
+process_info *load_info(char* command, pid_t pid);
 
 int shell(int argc, char *argv[]) {
     // TODO: This is the entry point for your shell.
@@ -51,6 +55,10 @@ int shell(int argc, char *argv[]) {
 
     his_vec = string_vector_create();
     todo_vec = string_vector_create();
+    processes_vec = shallow_vector_create();
+
+    process *main = add_process(argv[0], getpid());
+    vector_push_back(processes_vec, main);
 
     pid = getpid();
     int user_input_result = 1;
@@ -98,6 +106,14 @@ int shell(int argc, char *argv[]) {
     return 0;
 }
 
+process* add_process(char* command, pid_t pid) {
+    process *proc = calloc(1, sizeof(process));
+    proc->command = calloc(strlen(command)+1, sizeof(char));
+    proc->command = strdup(command);
+    proc->pid = pid;
+    return proc;
+}
+
 void handle_sig() {
     return;
 }
@@ -143,6 +159,13 @@ void run_process(char* process_args, int f) {
         return;
     }
 
+    if (!strcmp(process_args, "ps")) {
+        vector_push_back(his_vec, arg);
+        if (h) write_vec_to_file(his_vec, file_path);
+        run_ps();
+        return;
+    }
+
     if (arg[0] == '#') {
         int nth = atoi(arg+1);
         if (nth < (int) vector_size(his_vec)) {
@@ -181,7 +204,7 @@ void run_process(char* process_args, int f) {
     }
     if (h) write_vec_to_file(his_vec, file_path);
 
-    run(argv[0], argv);
+    run(argv[0], argv, process_args);
     // printf("command: %d\n", command_failed);
 }
 
@@ -289,19 +312,19 @@ void run_sep(char* arg) {
 // cd || others
     else if (!strcmp(process1_argv[0], "cd")) {
         cd(process1_argv[1]);
-        run(process2_argv[0], process2_argv);
+        run(process2_argv[0], process2_argv, process2);
         return;
     } 
 // others || cd
     else if (!strcmp(process2_argv[0], "cd")) {
-        run(process1_argv[0], process1_argv);
+        run(process1_argv[0], process1_argv, process1);
         cd(process2_argv[1]);
         return;
     } 
 // others || others
     else {
-        run(process1_argv[0], process1_argv);
-        run(process2_argv[0], process2_argv);
+        run(process1_argv[0], process1_argv, process1);
+        run(process2_argv[0], process2_argv, process2);
         return;
     }
 }
@@ -326,19 +349,19 @@ void run_or(char* arg) {
 // cd || others
     else if (!strcmp(process1_argv[0], "cd")) {
         int scd1 = cd(process1_argv[1]);
-        if (!scd1) run(process2_argv[0], process2_argv);
+        if (!scd1) run(process2_argv[0], process2_argv, process2);
         return;
     } 
 // others || cd
     else if (!strcmp(process2_argv[0], "cd")) {
-        run(process1_argv[0], process1_argv);
+        run(process1_argv[0], process1_argv, process1);
         if (command_failed) cd(process2_argv[1]);
         return;
     } 
 // others || others
     else {
-        run(process1_argv[0], process1_argv);
-        if (command_failed) run(process2_argv[0], process2_argv);
+        run(process1_argv[0], process1_argv, process1);
+        if (command_failed) run(process2_argv[0], process2_argv, process2);
         return;
     }
 }
@@ -363,19 +386,19 @@ void run_and(char* arg) {
 // cd && others
     else if (!strcmp(process1_argv[0], "cd")) {
         int scd1 = cd(process1_argv[1]);
-        if (scd1) run(process2_argv[0], process2_argv);
+        if (scd1) run(process2_argv[0], process2_argv, process2);
         return;
     } 
 // others && cd
     else if (!strcmp(process2_argv[0], "cd")) {
-        run(process1_argv[0], process1_argv);
+        run(process1_argv[0], process1_argv, process1);
         if (!command_failed) cd(process2_argv[1]);
         return;
     } 
 // others  && others
     else {
-        run(process1_argv[0], process1_argv);
-        if (!command_failed) run(process2_argv[0], process2_argv);
+        run(process1_argv[0], process1_argv, process1);
+        if (!command_failed) run(process2_argv[0], process2_argv, process2);
         return;
     }
 }
@@ -392,8 +415,18 @@ char** splitString(char* str, char* deli) {
     return ret;
 }
 
+void run_ps() {
+    print_process_info_header();
+    for (size_t i = 0; i < vector_size(processes_vec); i++) {
+        process *proc = (process*) vector_get(processes_vec, i);
+        if (kill(proc->pid, 0) != -1) {
+            // process_info *proc_info = load_info(proc->command, proc->pid);
+        }
+    }
+}
+
 // failed: 0,  success: 1
-int run(char*a, char** argv) {
+int run(char* a, char** argv, char* command) {
     int index = 0;
     int is_background = check_background(argv, &index);
     if (is_background) {
@@ -427,6 +460,7 @@ int run(char*a, char** argv) {
             //     command_failed = 1;
             //     return 0;
             // }
+            add_process(command, child);
             waitpid(child, &s, WNOHANG);
             return 0;
         }
@@ -510,3 +544,15 @@ void child_handler(int sig) {
     while (waitpid(-1, &s, WNOHANG) > 0) {}
 }
 
+// typedef struct process_info {
+//     int pid;
+//     long int nthreads;
+//     unsigned long int vsize;
+//     char state;
+//     char *start_str;
+//     char *time_str;
+//     char *command;
+// } process_info;
+process_info *load_info(char* command, pid_t pid) {
+    return NULL;
+}
