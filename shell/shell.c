@@ -42,6 +42,8 @@ void run_or(char*);
 int run(char*, char**);
 void run_sep(char*);
 void handle_sig();
+int check_background(char**, int*);
+void child_handler(int);
 
 int shell(int argc, char *argv[]) {
     // TODO: This is the entry point for your shell.
@@ -58,6 +60,7 @@ int shell(int argc, char *argv[]) {
     int count = 0;
 
     signal(SIGINT, handle_sig);
+    // signal(SIGCHLD, child_handler);
 
     if((arg=getopt(argc, argv,":f:h:")) != -1) {
         if (arg == 'h') {
@@ -340,11 +343,6 @@ void run_or(char* arg) {
     }
 }
 
-
-// void cd(char* dest) {
-//     int s = chdir(dest);
-//     if (s) print_no_directory(dest);
-// }
 void run_and(char* arg) {
     char** argv = splitString(arg, "&&");
     char* process1 = argv[0];
@@ -396,29 +394,119 @@ char** splitString(char* str, char* deli) {
 
 // failed: 0,  success: 1
 int run(char*a, char** argv) {
-    fflush(stdin);
-    fflush(stdout);
-    pid_t child = fork();
-    if (child == -1) {
-        print_fork_failed();
-        command_failed = 1;
-        return 0;
-    }
-    if (!child) {
-        print_command_executed(getpid());
-        execvp(a, argv);
-        print_exec_failed(a);
-        exit(1);
+    int index = 0;
+    int is_background = check_background(argv, &index);
+    if (is_background) {
+        argv[index] = 0;
+        fflush(stdin);
+        fflush(stdout);
+        pid_t child = fork();
+        signal(SIGCHLD, child_handler);
+        if (child == -1) {
+            print_fork_failed();
+            command_failed = 1;
+            exit(1);
+        }
+        if (!child) {
+            if (setpgid(child, child) == -1) {
+                print_setpgid_failed();
+                command_failed = 1;
+                exit(1);
+            }
+            print_command_executed(getpid());
+            execvp(a, argv);
+            print_exec_failed(a);
+            exit(1);
+        } else {
+            command_failed = 0;
+            int s;
+            // int ws = waitpid(child, &s, 0);
+            // if (ws == -1) print_wait_failed();
+            // if (WIFEXITED(s) && WEXITSTATUS(s) != 0) {
+            //     // print_exec_failed(a);
+            //     command_failed = 1;
+            //     return 0;
+            // }
+            waitpid(child, &s, WNOHANG);
+            return 0;
+        }
+
+
+
     } else {
-        command_failed = 0;
-        int s;
-        int ws = waitpid(child, &s, 0);
-        if (ws == -1) print_wait_failed();
-        if (WIFEXITED(s) && WEXITSTATUS(s) != 0) {
-            // print_exec_failed(a);
+        fflush(stdin);
+        fflush(stdout);
+        pid_t child = fork();
+        if (child == -1) {
+            print_fork_failed();
             command_failed = 1;
             return 0;
         }
+        if (!child) {
+            print_command_executed(getpid());
+            execvp(a, argv);
+            print_exec_failed(a);
+            exit(1);
+        } else {
+            command_failed = 0;
+            int s;
+            int ws = waitpid(child, &s, 0);
+            if (ws == -1) print_wait_failed();
+            if (WIFEXITED(s) && WEXITSTATUS(s) != 0) {
+                // print_exec_failed(a);
+                command_failed = 1;
+                return 0;
+            }
+        }
     }
+    // fflush(stdin);
+    // fflush(stdout);
+    // pid_t child = fork();
+    // if (child == -1) {
+    //     print_fork_failed();
+    //     command_failed = 1;
+    //     return 0;
+    // }
+    // if (!child) {
+    //     print_command_executed(getpid());
+    //     execvp(a, argv);
+    //     print_exec_failed(a);
+    //     exit(1);
+    // } else {
+    //     command_failed = 0;
+    //     int s;
+    //     int ws = waitpid(child, &s, 0);
+    //     if (ws == -1) print_wait_failed();
+    //     if (WIFEXITED(s) && WEXITSTATUS(s) != 0) {
+    //         // print_exec_failed(a);
+    //         command_failed = 1;
+    //         return 0;
+    //     }
+    // }
     return 1;
 }
+
+int check_background(char **argv, int *index) {
+    char **tmp = argv;
+    int i = 0;
+    while (*tmp) {
+        if (!*(tmp+1)) {
+            if (!strcmp(*tmp+strlen(*tmp)-1, "&")) {
+                *index = i;
+                return 1;
+            } else {
+                return 0;
+            }
+        }
+        tmp++;
+        i++;
+    }
+    
+    return 0;
+}
+
+void child_handler(int sig) {
+    int s;
+    while (waitpid(-1, &s, WNOHANG) > 0) {}
+}
+
