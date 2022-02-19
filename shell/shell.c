@@ -701,6 +701,7 @@ char* find_path(char** argv) {
     return NULL;
 }
 
+// reference: http://www.microhowto.info/howto/capture_the_output_of_a_child_process_in_c.html
 int run_OUTPUT(char** argv, char* path, int mode) {
     int filedes[2];
     if (pipe(filedes) == -1) {
