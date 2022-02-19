@@ -10,6 +10,7 @@
 #include <limits.h>
 #include <string.h>
 #include <sys/wait.h>
+#include <errno.h>
 
 typedef struct process {
     char *command;
@@ -47,7 +48,10 @@ int check_background(char**, int*);
 void child_handler(int);
 void run_ps();
 process* add_process(char*, pid_t);
-process_info *load_info(char* command, pid_t pid);
+process_info *load_info(char*, pid_t);
+int check_direction(char**, char*);
+int run_OUTPUT(char**, char*, int);
+char* find_path(char** argv);
 
 int shell(int argc, char *argv[]) {
     // TODO: This is the entry point for your shell.
@@ -200,6 +204,19 @@ void run_process(char* process_args, int f) {
     if (!strcmp(argv[0], "!history")) {
         vector_pop_back(his_vec);
         print_history();
+        return;
+    }
+    char *potential_file_p = find_path(argv); 
+    int dir_op = check_direction(argv, potential_file_p);
+    if (dir_op) {
+        if (h) write_vec_to_file(his_vec, file_path);
+        if (dir_op == 1) { // OUTPUT >
+            run_OUTPUT(argv, potential_file_p, dir_op);
+        } else if (dir_op == 2) { // APPEND >>
+            run_OUTPUT(argv, potential_file_p, dir_op);
+        } else { // INPUT <
+
+        }
         return;
     }
     if (h) write_vec_to_file(his_vec, file_path);
@@ -420,7 +437,8 @@ void run_ps() {
     for (size_t i = 0; i < vector_size(processes_vec); i++) {
         process *proc = (process*) vector_get(processes_vec, i);
         if (kill(proc->pid, 0) != -1) {
-            // process_info *proc_info = load_info(proc->command, proc->pid);
+            process_info *proc_info = load_info(proc->command, proc->pid);
+            print_process_info(proc_info);
         }
     }
 }
@@ -460,7 +478,8 @@ int run(char* a, char** argv, char* command) {
             //     command_failed = 1;
             //     return 0;
             // }
-            add_process(command, child);
+            process *p = add_process(command, child);
+            vector_push_back(processes_vec, p);
             waitpid(child, &s, WNOHANG);
             return 0;
         }
@@ -545,7 +564,7 @@ void child_handler(int sig) {
 }
 
 // typedef struct process_info {
-//     int pid;
+//     int pid;//
 //     long int nthreads;
 //     unsigned long int vsize;
 //     char state;
@@ -554,5 +573,197 @@ void child_handler(int sig) {
 //     char *command;
 // } process_info;
 process_info *load_info(char* command, pid_t pid) {
+    process_info *proc_info = calloc(1, sizeof(process_info));
+    proc_info->pid = (int) pid;
+    // printf("pid is %d\n", proc_info->pid);
+    proc_info->command = calloc(strlen(command)+1, sizeof(char));
+    proc_info->command = strdup(command);
+    char *proc_p = calloc(30, sizeof(char));
+    strcpy(proc_p, "/proc/");
+    int p = (int) pid;
+    char *pid_s;
+    asprintf(&pid_s, "%d", p);
+    strcat(proc_p, pid_s);
+    strcat(proc_p, "/status");
+
+    FILE *fd = fopen(proc_p, "r");
+    free(proc_p);
+    if (fd) {
+        char *buffer = NULL;
+        size_t buffer_size = 0;
+        while (getline(&buffer, &buffer_size, fd) > 0) {
+            // state
+            if (!strncmp(buffer, "State:", 6)) proc_info->state = *(buffer+7);
+            // vsize
+            if (!strncmp(buffer, "VmSize:", 7)) proc_info->vsize = strtol(strdup(buffer+8), NULL, 10);
+            // nthreads
+            if (!strncmp(buffer, "Threads:", 8)) proc_info->nthreads = strtol(strdup(buffer+9), NULL, 10);
+        }
+        fclose(fd);
+    } else {
+        print_script_file_error();
+        exit(1);
+    }
+
+    char *proc_p_s = "/proc/stat";
+    FILE *fd_s = fopen(proc_p_s, "r");
+    unsigned long long btime;
+    if (fd_s) {
+        char *buffer = NULL;
+        size_t buffer_size = 0;
+        while (getline(&buffer, &buffer_size, fd_s) > 0) {
+            // btime
+            if (!strncmp(buffer, "btime ", 6)) {
+                btime = strtoul(buffer+6, NULL, 10);
+                break;
+            }
+            }
+        fclose(fd_s);
+    } else {
+        print_script_file_error();
+        exit(1);
+    }
+
+    char *proc_p_stat = calloc(30, sizeof(char));
+    strcpy(proc_p_stat, "/proc/");
+    strcat(proc_p_stat, pid_s);
+    strcat(proc_p_stat, "/stat");
+    FILE *fd_stat = fopen(proc_p_stat, "r");
+    free(proc_p_stat);
+    unsigned long utime, stime;
+    unsigned long long starttime;
+    if (fd_stat) {
+        char *buffer = NULL;
+        size_t buffer_size = 0;
+        getline(&buffer, &buffer_size, fd_stat);
+        char** stat = parse_string(buffer, " ");
+        utime = strtoul(stat[13], NULL, 10);
+        stime = strtoul(stat[14], NULL, 10);
+        starttime = strtoull(stat[21], NULL, 10);
+
+        fclose(fd_stat);
+    } else {
+        print_script_file_error();
+        exit(1);
+    }
+
+// start_str
+    time_t START_time = (time_t) (btime + starttime/sysconf(_SC_CLK_TCK));
+    struct tm *tm_info = localtime(&START_time);
+    char *buffer_start = calloc(30, sizeof(char));
+    time_struct_to_string(buffer_start, 30, tm_info);
+    proc_info->start_str = calloc(strlen(buffer_start)+1, sizeof(char));
+    proc_info->start_str = strdup(buffer_start);
+
+// time_str
+    size_t TIME_time = (size_t) ((utime + stime)/sysconf(_SC_CLK_TCK));
+    char *buffer_time = calloc(30, sizeof(char));
+    size_t minutes = TIME_time / 60;
+    size_t seconds = TIME_time % 60;
+    execution_time_to_string(buffer_time, 30, minutes, seconds);
+    proc_info->time_str = calloc(strlen(buffer_time)+1, sizeof(char));
+    proc_info->time_str = strdup(buffer_time);
+
+    return proc_info;
+}
+
+int check_direction(char **argv, char *path) {
+    char **tmp = argv;
+    while (*tmp) {
+        if (!strcmp(*tmp, ">")) {
+            path = *(tmp + 1);
+            *tmp = 0;
+            return 1;
+        }
+        else if (!strcmp(*tmp, ">>")) {
+            path = *(tmp + 1);
+            *tmp = 0;
+            return 2;
+        }
+        else if (!strcmp(*tmp, "<")) {
+            path = *(tmp + 1);
+            *tmp = 0;
+            return 3;
+        }
+        tmp++;
+    }
+    return 0;
+}
+
+char* find_path(char** argv) {
+    char **tmp = argv;
+    while (*tmp) {
+        if (!*(tmp+1)) {
+            return *tmp;
+        }
+        tmp++;
+    }
     return NULL;
+}
+
+int run_OUTPUT(char** argv, char* path, int mode) {
+    int filedes[2];
+    if (pipe(filedes) == -1) {
+        print_redirection_file_error();
+        exit(1);
+    }
+
+    // open file
+    FILE *fd;
+    if (mode == 1) {
+        fd = fopen(path, "w+");
+    } else if (mode == 2) {
+        fd = fopen(path, "a+");
+    }
+
+    fflush(stdin);
+    fflush(stdout);
+    pid_t child = fork();
+    if (child == -1) {
+        print_fork_failed();
+        command_failed = 1;
+        return 0;
+    }
+    if (!child) {
+        print_command_executed(getpid());
+
+        while ((dup2(filedes[1], STDOUT_FILENO) == -1) && (errno == EINTR)) {}
+        close(filedes[1]);
+        close(filedes[0]);
+        execvp(argv[0], argv);
+        print_exec_failed(argv[0]);
+        exit(1);
+    } else {
+        close(filedes[1]);
+        char buffer[4096];
+        memset(buffer, 0, 4096);
+        while (1) {
+            ssize_t count = read(filedes[0], buffer, sizeof(buffer));
+            if (count == -1) {
+                if (errno == EINTR) {
+                    continue;
+                } else {
+                    perror("read");
+                    exit(1);
+                }
+            } else if (count == 0) {
+                break;
+            } else {
+                int nwrite = fprintf(fd, "%s", buffer);
+                fclose(fd);
+            }
+        }
+        close(filedes[0]);
+
+        command_failed = 0;
+        int s;
+        int ws = waitpid(child, &s, 0);
+        if (ws == -1) print_wait_failed();
+        if (WIFEXITED(s) && WEXITSTATUS(s) != 0) {
+            // print_exec_failed(a);
+            command_failed = 1;
+            return 0;
+        }
+    }
+    return 1;
 }
