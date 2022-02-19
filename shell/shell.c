@@ -53,6 +53,7 @@ int check_direction(char**, char*);
 int run_OUTPUT(char**, char*, int);
 char* find_path(char** argv);
 int run_INPUT(char**, char*);
+void kill_process(pid_t, int, char*);
 
 int shell(int argc, char *argv[]) {
     // TODO: This is the entry point for your shell.
@@ -221,7 +222,38 @@ void run_process(char* process_args, int f) {
         return;
     }
     if (h) write_vec_to_file(his_vec, file_path);
-
+//  signal command
+    pid_t process_pid;
+    if (!strcmp(argv[0], "kill")) {
+        if (argv[1]) {
+            process_pid = (pid_t) atoi(argv[1]);
+        } else {
+            print_invalid_command(process_args);
+            exit(1);
+        }
+        kill_process(process_pid, 1, process_args);
+        return;
+    }
+    if (!strcmp(argv[0], "stop")) {
+        if (argv[1]) {
+            process_pid = (pid_t) atoi(argv[1]);
+        } else {
+            print_invalid_command(process_args);
+            exit(1);
+        }
+        kill_process(process_pid, 2, process_args);
+        return;
+    }
+    if (!strcmp(argv[0], "cont")) {
+        if (argv[1]) {
+            process_pid = (pid_t) atoi(argv[1]);
+        } else {
+            print_invalid_command(process_args);
+            exit(1);
+        }
+        kill_process(process_pid, 3, process_args);
+        return;
+    }
     run(argv[0], argv, process_args);
     // printf("command: %d\n", command_failed);
 }
@@ -821,3 +853,27 @@ int run_INPUT(char** argv, char* path) {
     }
     return 1;
 }
+
+void kill_process(pid_t pid, int mode, char* command) {
+    int s = 10; // if not changed, pid not found
+    for (size_t i = 0; i < vector_size(processes_vec); i++) {
+        process *proc = (process*) vector_get(processes_vec, i);
+        if (proc->pid == pid) {
+            if (mode == 1) {
+                s = kill(pid, SIGKILL);
+                print_killed_process(pid, command);
+            } else if (mode == 2) {
+                s = kill(pid, SIGSTOP);
+                print_stopped_process(pid, command);
+            } else {
+                s = kill(pid, SIGCONT);
+                print_continued_process(pid, command);
+            }
+        }
+    }
+    if (s == 10) {
+        print_no_process_found((int) pid);
+    }
+}
+
+
