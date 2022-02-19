@@ -52,6 +52,7 @@ process_info *load_info(char*, pid_t);
 int check_direction(char**, char*);
 int run_OUTPUT(char**, char*, int);
 char* find_path(char** argv);
+int run_INPUT(char**, char*);
 
 int shell(int argc, char *argv[]) {
     // TODO: This is the entry point for your shell.
@@ -215,7 +216,7 @@ void run_process(char* process_args, int f) {
         } else if (dir_op == 2) { // APPEND >>
             run_OUTPUT(argv, potential_file_p, dir_op);
         } else { // INPUT <
-
+            run_INPUT(argv, potential_file_p);
         }
         return;
     }
@@ -750,11 +751,63 @@ int run_OUTPUT(char** argv, char* path, int mode) {
             } else if (count == 0) {
                 break;
             } else {
-                int nwrite = fprintf(fd, "%s", buffer);
+                fprintf(fd, "%s", buffer);
                 fclose(fd);
             }
         }
         close(filedes[0]);
+
+        command_failed = 0;
+        int s;
+        int ws = waitpid(child, &s, 0);
+        if (ws == -1) print_wait_failed();
+        if (WIFEXITED(s) && WEXITSTATUS(s) != 0) {
+            // print_exec_failed(a);
+            command_failed = 1;
+            return 0;
+        }
+    }
+    return 1;
+}
+
+int run_INPUT(char** argv, char* path) {
+    int filedes[2];
+    if (pipe(filedes) == -1) { // entrance to the pipe is written to filedes[1] and the exit to filedes[0]
+        print_redirection_file_error();
+        exit(1);
+    }
+
+    // open file
+    FILE *fd = fopen(path, "r");
+
+    fflush(stdin);
+    fflush(stdout);
+    pid_t child = fork();
+    if (child == -1) {
+        print_fork_failed();
+        command_failed = 1;
+        return 0;
+    }
+    if (!child) {
+        print_command_executed(getpid());
+        close(0);
+        // while ((dup2(filedes[0], STDIN_FILENO) == -1) && (errno == EINTR)) {}
+        dup(filedes[0]);
+        close(filedes[0]);
+        close(filedes[1]);
+
+        execvp(argv[0], argv);
+        print_exec_failed(argv[0]);
+        exit(1);
+    } else {
+        close(filedes[0]);
+        char *buffer = NULL;
+        size_t buffer_size = 0;
+        while (getline(&buffer, &buffer_size, fd) != -1) {
+            write(filedes[1], buffer, strlen(buffer));
+        }
+
+        close(filedes[1]);
 
         command_failed = 0;
         int s;
