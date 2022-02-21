@@ -824,7 +824,7 @@ int run_INPUT(char** argv, char* path) {
         print_command_executed(getpid());
         close(0);
         // while ((dup2(filedes[0], STDIN_FILENO) == -1) && (errno == EINTR)) {}
-        dup(filedes[0]);
+        dup2(filedes[0], 0);
         close(filedes[0]);
         close(filedes[1]);
 
