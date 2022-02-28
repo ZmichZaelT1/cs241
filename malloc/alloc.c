@@ -42,7 +42,7 @@ void split_block(metadata_t *block, size_t size) {
     block->next = new;
     if (next) next->prev = new;
     if (block == tail) tail = new;
-    // if(new->next && new->next->free) merge(new, new->next);
+    if(new->next && new->next->free) merge(new, new->next);
 }
 
 /**
