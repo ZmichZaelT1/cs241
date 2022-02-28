@@ -21,8 +21,11 @@ int main(int argc, char *argv[]) {
     int *dictionary_elem_size = malloc(TOTAL_ALLOCS * sizeof(int));
     int dictionary_ct = 0;
     int data_written = 0;
-
+    // puts("1");
     for (i = 0; i < TOTAL_ALLOCS; i++) {
+    //     if (i % 10000 == 0) {
+    //         printf("%dk done\n", i/1000);
+    //     }
         int size =
             (rand() % (MAX_ALLOC_SIZE - MIN_ALLOC_SIZE + 1)) + MIN_ALLOC_SIZE;
         void *ptr;
@@ -59,6 +62,7 @@ int main(int argc, char *argv[]) {
             }
         }
     }
+    // puts("2");
 
     for (i = dictionary_ct - 1; i >= 0; i--) {
         if (*((void **)dictionary[i]) != &dictionary[i]) {

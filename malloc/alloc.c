@@ -7,6 +7,43 @@
 #include <string.h>
 #include <unistd.h>
 
+typedef struct _metadata_t {
+    void *ptr;
+    size_t size;
+    int free;
+    struct _metadata_t *next;
+    struct _metadata_t *prev;
+} metadata_t;
+
+static metadata_t *head = NULL;
+static metadata_t *tail = NULL;
+static int freed = 0;
+// static size_t mem_free = 0;
+
+void split_block(metadata_t *block, size_t size) {
+    metadata_t *next = block->next;
+    metadata_t *new = block->ptr + size;
+    new->ptr = new + 1;
+    new->size = block->size - size - sizeof(metadata_t);
+    new->free = 1;
+    new->next = next;
+    new->prev = block;
+    block->size = size;
+    block->next = new;
+    if (next) next->prev = new;
+    if (block == tail) tail = new;
+}
+
+void merge(metadata_t *first, metadata_t *second) {
+    if (second == tail) {
+        tail = first;
+    }
+    metadata_t *next = second->next;
+    first->size += second->size + sizeof(metadata_t);
+    first->next = next;
+    if (next) next->prev = first;
+}
+
 /**
  * Allocate space for array in memory
  *
@@ -32,7 +69,10 @@
  */
 void *calloc(size_t num, size_t size) {
     // implement calloc!
-    return NULL;
+    void *ret = malloc(num * size);
+    if (!ret) return NULL;
+    memset(ret, 0, num * size);
+    return ret;
 }
 
 /**
@@ -58,7 +98,64 @@ void *calloc(size_t num, size_t size) {
  */
 void *malloc(size_t size) {
     // implement malloc!
-    return NULL;
+    metadata_t *curr = tail;
+
+    metadata_t *chosen = NULL;
+    if (freed) {
+        if (!tail) {
+            curr = head;
+        }
+        while (curr) {
+            if (curr->free && curr->size >= size) {
+                chosen = curr;
+                if (size/3 < chosen->size-size && chosen->size-size > sizeof(metadata_t)) {
+                    split_block(chosen, size);
+                }
+                break;
+                // if (!chosen || (chosen && curr->size < chosen->size)) {
+                //     chosen = curr;
+                // }
+            }
+            curr = curr->prev;
+        }
+    }
+    if (chosen) {
+        chosen->free = 0;
+        return chosen->ptr;
+    }
+
+    chosen = sbrk(0);
+    sbrk(sizeof(metadata_t));
+    chosen->ptr = sbrk(0);
+    if (sbrk(size) == (void*)-1) {
+        return NULL;
+    }
+
+    chosen->size = size;
+    chosen->free = 0;
+    // chosen->next = NULL;
+    if (!head) {
+        head = chosen;
+        head->next = tail;
+        head->prev = NULL;
+    } else {
+        if (tail) {
+            tail->next = chosen;
+            chosen->prev = tail;
+            tail = chosen;
+            tail->next = NULL;
+        } else {
+            tail = chosen;
+            head->next = tail;
+            tail->prev = head;
+            tail->next = NULL;
+        }
+    }
+    // chosen->prev = tail;
+
+    // if (head) head->prev = chosen;
+    // head = chosen;
+    return chosen->ptr;
 }
 
 /**
@@ -79,6 +176,30 @@ void *malloc(size_t size) {
  */
 void free(void *ptr) {
     // implement free!
+    if (!ptr) return;
+
+    metadata_t *curr = ptr - sizeof(metadata_t);
+    // if(curr->free) return;
+    // // while (curr) {
+    curr->free = 1;
+    // int merged_left = 0;
+    if (curr->prev) {
+        if(curr->prev->free) {
+            merge(curr->prev, curr);
+            curr = curr->prev;
+        }
+    }
+    if (curr->next) {
+        if(curr->next->free) {
+            merge(curr, curr->next);
+        }
+    }
+
+        // break;
+    // curr = curr->next;
+    // }
+
+    freed = 1;
 }
 
 /**
@@ -128,5 +249,22 @@ void free(void *ptr) {
  */
 void *realloc(void *ptr, size_t size) {
     // implement realloc!
-    return NULL;
+    if (!ptr) return malloc(size);
+    metadata_t *entry = ((metadata_t*)ptr) - 1;
+    size_t oldsize = entry->size;
+
+    if (oldsize < size) {
+        void *result = malloc(size);
+        memcpy(result, ptr, oldsize);
+        free(ptr);
+        return result;
+    } else if (oldsize > size) {
+        // if (oldsize > 2*size && (oldsize - size) > 1024) {
+        // }
+        void *result = malloc(size);
+        memcpy(result, ptr, size);
+        free(ptr);
+        return result;
+    }
+    return ptr;
 }
