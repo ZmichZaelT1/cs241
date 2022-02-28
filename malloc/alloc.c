@@ -20,6 +20,16 @@ static metadata_t *tail = NULL;
 static int freed = 0;
 // static size_t mem_free = 0;
 
+void merge(metadata_t *first, metadata_t *second) {
+    if (second == tail) {
+        tail = first;
+    }
+    metadata_t *next = second->next;
+    first->size += second->size + sizeof(metadata_t);
+    first->next = next;
+    if (next) next->prev = first;
+}
+
 void split_block(metadata_t *block, size_t size) {
     metadata_t *next = block->next;
     metadata_t *new = block->ptr + size;
@@ -32,16 +42,7 @@ void split_block(metadata_t *block, size_t size) {
     block->next = new;
     if (next) next->prev = new;
     if (block == tail) tail = new;
-}
-
-void merge(metadata_t *first, metadata_t *second) {
-    if (second == tail) {
-        tail = first;
-    }
-    metadata_t *next = second->next;
-    first->size += second->size + sizeof(metadata_t);
-    first->next = next;
-    if (next) next->prev = first;
+    // if(new->next && new->next->free) merge(new, new->next);
 }
 
 /**
