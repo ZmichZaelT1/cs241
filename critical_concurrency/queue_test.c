@@ -11,10 +11,11 @@
 #include "queue.h"
 
 int main(int argc, char **argv) {
-    if (argc != 3) {
-        printf("usage: %s test_number return_code\n", argv[0]);
-        exit(1);
-    }
-    printf("Please write tests cases\n");
+    queue *test = queue_create(3);
+    queue_push(test, (void*) 1);
+    queue_pull(test);
+    queue_pull(test);
+
+    queue_destroy(test);
     return 0;
 }

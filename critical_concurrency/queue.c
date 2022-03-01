@@ -73,12 +73,12 @@ void queue_push(queue *this, void *data) {
     new->next = NULL;
 
     if (this->tail) {
-        this->tail = new;
-        this->head = new;
-        this->size++;
-    } else {
         this->tail->next = new;
         this->tail = new;
+        this->size++;
+    } else {
+        this->tail = new;
+        this->head = new;
         this->size ++;
     }
     pthread_cond_broadcast(&this->cv);
