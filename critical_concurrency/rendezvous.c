@@ -13,12 +13,15 @@ static char *quote_A;
 static char *quote_B;
 
 // Create some Semaphores!
+static sem_t sem_a, sem_b;
 
 static void *modifyB_printA();
 static void *modifyA_printB();
 
 int main(int argc, char **argv) {
     // Initialize your semaphores
+    sem_init(&sem_a, 0, 0);
+    sem_init(&sem_b, 0, 0);
 
     quote_A = strdup("J!epo(u!lopx!ipx!nboz!pg!zpv!ibwf!fwfs!nfu!Ejkltusb-!cvu!"
                      "zpv!qspcbcmz!lopx!uibu!bssphbodf!jo!dpnqvufs!tdjfodf!jt!"
@@ -34,6 +37,9 @@ int main(int argc, char **argv) {
     pthread_join(tid1, NULL);
     pthread_join(tid2, NULL);
 
+    sem_destroy(&sem_a);
+    sem_destroy(&sem_b);
+
     free(quote_B);
     free(quote_A);
 
@@ -48,7 +54,8 @@ static void *modifyA_printB() {
         usleep(rand() & 15); // randomized slowdowns
         quote_A[i++]--;
     }
-
+    sem_post(&sem_a);
+    sem_wait(&sem_b);
     printf("quote_B:\t%s\n", quote_B);
     return NULL;
 }
@@ -59,7 +66,8 @@ static void *modifyB_printA() {
         usleep(rand() & 100); // randomized slowdowns
         quote_B[i++]--;
     }
-
+    sem_post(&sem_b);
+    sem_wait(&sem_a);
     printf("quote_A:\t%s\n", quote_A);
     return NULL;
 }
