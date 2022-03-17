@@ -46,6 +46,7 @@ void *cracker(void *i) {
             incrementString(known);
         }
         v1_print_thread_result((long) i, user, known, hashCount, getThreadCPUTime() - start, result);
+        free(curr);
     }
     queue_push(task_q, NULL);
     return NULL;
@@ -63,6 +64,7 @@ int start(size_t thread_count) {
         queue_push(task_q, strdup(buf));
         queue_size++;
     }
+    free(buf);
     queue_push(task_q, NULL);
 
     pthread_t pid[thread_count];

@@ -36,12 +36,13 @@ static int thread_number = 0;
 static char user[20];
 static char hash[20];
 static char known[20];
-static char result[20];
+static char *result;
 
 
 void *cracker(void *i) {
     struct crypt_data cdata;
     cdata.initialized = 0;
+    char *known_cpy = NULL;
     while(1){
         pthread_barrier_wait(&start_b);
         if(eof) break;
@@ -52,8 +53,8 @@ void *cracker(void *i) {
         int unknown_letter_count = strlen(known) - prefixLength;
         getSubrange(unknown_letter_count, thread_number, (long) i, &start_index, &count);
 
-        char *known_cpy = calloc(strlen(known) + 1 + prefixLength, sizeof(char));
-        known_cpy = strdup(known);
+        known_cpy = calloc(strlen(known) + 1 + prefixLength, sizeof(char));
+        strcpy(known_cpy, known);
         char *unknown = known_cpy + prefixLength;
         setStringPosition(unknown, start_index);
         v2_print_thread_start((long) i, user, start_index, known_cpy);
@@ -64,7 +65,7 @@ void *cracker(void *i) {
 
             if(!strcmp(guess, hash)){
                 pthread_mutex_lock(&mut);
-                // result = calloc(1, strlen(known_cpy) + 1);
+                result = calloc(1, strlen(known_cpy) + 1);
                 strcpy(result, known_cpy);
                 // result = known_cpy;
                 success = 1;
@@ -121,11 +122,14 @@ int start(size_t thread_count) {
         double cpu_start = getCPUTime();
 
         pthread_barrier_wait(&end_b);
-        v2_print_summary(user, result, total_hashCount, getTime() - time_start, getCPUTime() - cpu_start, 0);
-
+        v2_print_summary(user, result, total_hashCount, getTime() - time_start, getCPUTime() - cpu_start, !success);
         success = 0;
         total_hashCount = 0;
+        free(result);
+        result = NULL;
+        // free(buf);
     }
+    free(buf);
     eof = 1;
     pthread_barrier_wait(&start_b);
 
