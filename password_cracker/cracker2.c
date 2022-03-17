@@ -11,19 +11,6 @@
 #include <stdio.h>
 #include <crypt.h>
 
-// typedef struct task_ {
-//     pthread_t pid;
-//     int worker_id;
-//     int count;
-// } task;
-
-// typedef struct task_ {
-//     char user[20];
-//     char hash[20];
-//     char known[20];
-// } task_struct;
-
-
 static int success = 0;
 pthread_mutex_t mut = PTHREAD_MUTEX_INITIALIZER;
 pthread_barrier_t start_b;
@@ -67,7 +54,6 @@ void *cracker(void *i) {
                 pthread_mutex_lock(&mut);
                 result = calloc(1, strlen(known_cpy) + 1);
                 strcpy(result, known_cpy);
-                // result = known_cpy;
                 success = 1;
                 v2_print_thread_result((long) i, hashCount, 0);
                 total_hashCount = total_hashCount + hashCount;
