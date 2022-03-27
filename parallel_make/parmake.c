@@ -47,8 +47,13 @@ int parmake(char *makefile, size_t num_threads, char **targets) {
             run_goal(goal);
         }
     }
+    graph_destroy(g);
+    queue_destroy(q);
+    vector_destroy(goals);
     return 0;
 }
+
+// void destroy_stuff()
 
 int run_goal(char *goal) {
     vector *neighbors = graph_neighbors(g, goal);
@@ -60,6 +65,7 @@ int run_goal(char *goal) {
             rule_t *rule = (rule_t*) graph_get_vertex_value(g, neighbor);
             if (rule->state == -1) {
                 goal_rule->state = -1;
+                vector_destroy(neighbors);
                 return -1;
             } else if (rule->state == 0){
                 int s = run_goal(neighbor);
@@ -70,7 +76,10 @@ int run_goal(char *goal) {
                 }
             }
         }
-        if (failed) return -1;
+        if (failed) {
+            vector_destroy(neighbors);
+            return -1;
+        }
         for (size_t i = 0; i < vector_size(neighbors); i++) {
             char *neighbor = vector_get(neighbors, i);
             rule_t *rule = (rule_t*) graph_get_vertex_value(g, neighbor);
@@ -78,6 +87,7 @@ int run_goal(char *goal) {
                 if (access(rule->target, F_OK) == 0) {
                     if (!isNewer(rule, goal_rule)) {
                         goal_rule->state = 1;
+                        vector_destroy(neighbors);
                         return 1;
                     }
                 }
@@ -85,9 +95,11 @@ int run_goal(char *goal) {
             int run_stat = run_command(goal_rule);
             if (run_stat == -1) {
                 goal_rule->state = -1;
+                vector_destroy(neighbors);
                 return -1;
             } else {
                 goal_rule->state = 1;
+                vector_destroy(neighbors);
                 return 1;
             }
         }
@@ -96,13 +108,16 @@ int run_goal(char *goal) {
             int run_stat = run_command(goal_rule);
             if (run_stat == -1) {
                 goal_rule->state = -1;
+                vector_destroy(neighbors);
                 return -1;
             } else {
                 goal_rule->state = 1;
+                vector_destroy(neighbors);
                 return 1;
             }
         }
     }
+    vector_destroy(neighbors);
     return 1;
 }
 
@@ -118,15 +133,21 @@ int run_command(rule_t *rule) {
 int checkCyclic(char *goal) {
     if(!is_visited) is_visited = shallow_set_create();
     if(set_contains(is_visited, goal)){
+        set_destroy(is_visited);
         is_visited = NULL;
         return 1;
     } else {
         set_add(is_visited, goal);
         vector* reachables = graph_neighbors(g, goal);
         for(size_t i = 0; i < vector_size(reachables); i++){
-            if(checkCyclic(vector_get(reachables, i))) return 1;
+            if(checkCyclic(vector_get(reachables, i))) {
+                vector_destroy(reachables);
+                return 1;
+            }
         }
+        vector_destroy(reachables);
     }
+    set_destroy(is_visited);
     is_visited = NULL;
     return 0;
 }
