@@ -64,7 +64,7 @@ e: e1 e2
 	echo
 
 e1:
-	echo "[e Stage]: We should both be the zeroeth to print!"
+	echo "[e1 Stage]: We should both be the zeroeth to print!"
 
 e2:
-	echo "[e Stage]: We should both be the zeroeth to print!"
+	echo "[e2 Stage]: We should both be the zeroeth to print!"
