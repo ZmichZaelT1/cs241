@@ -1,3 +1,6 @@
 Hello
 there
 class!
+Hello
+there
+class!
