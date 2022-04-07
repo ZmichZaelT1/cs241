@@ -197,7 +197,7 @@ ssize_t minixfs_write(file_system *fs, const char *path, const void *buf,
     clock_gettime(CLOCK_REALTIME, &(n->atim));
     clock_gettime(CLOCK_REALTIME, &(n->mtim));
 
-    return -1;
+    return bytes_written;
 }
 
 ssize_t minixfs_read(file_system *fs, const char *path, void *buf, size_t count,
@@ -256,5 +256,5 @@ ssize_t minixfs_read(file_system *fs, const char *path, void *buf, size_t count,
     //update time
     clock_gettime(CLOCK_REALTIME, &(n->atim));
 
-    return -1;
+    return bytes_read;
 }
