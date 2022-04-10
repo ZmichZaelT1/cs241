@@ -122,7 +122,7 @@ void run_server(char *port) {
     }
     
     int one = 1;
-    if (setsockopt(serverSocket, SOL_SOCKET, SO_REUSEPORT, &one, sizeof(int)) == -1) {
+    if (setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(int)) == -1) {
         perror("setsockopt");
         exit(1);
     }
