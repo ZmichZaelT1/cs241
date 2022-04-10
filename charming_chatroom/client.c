@@ -13,6 +13,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <arpa/inet.h>
 
 #include "chat_window.h"
 #include "utils.h"
@@ -30,6 +31,21 @@ void close_program(int signal);
  */
 void close_server_connection() {
     // Your code here
+    if (shutdown(serverSocket, SHUT_RDWR) != 0) {
+        perror("shutdown");
+    }
+    if (close(serverSocket) != 0) {
+        perror("close");
+    }
+}
+
+void *get_in_addr(struct sockaddr *sa)
+{
+	if (sa->sa_family == AF_INET) {
+		return &(((struct sockaddr_in*)sa)->sin_addr);
+	}
+
+	return &(((struct sockaddr_in6*)sa)->sin6_addr);
 }
 
 /**
@@ -42,17 +58,37 @@ void close_server_connection() {
  * Returns integer of valid file descriptor, or exit(1) on failure.
  */
 int connect_to_server(const char *host, const char *port) {
-    /*QUESTION 1*/
-    /*QUESTION 2*/
-    /*QUESTION 3*/
+    struct addrinfo hints, *servinfo;
 
-    /*QUESTION 4*/
-    /*QUESTION 5*/
+    memset(&hints, 0, sizeof(hints));
 
-    /*QUESTION 6*/
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
 
-    /*QUESTION 7*/
-    return -1;
+    int rv = getaddrinfo(host, port, &hints, &servinfo);
+    if (rv != 0) {
+        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
+    }
+
+    serverSocket = socket(servinfo->ai_family, servinfo->ai_socktype, servinfo->ai_protocol);
+    if (serverSocket == -1) {
+        perror("client: socket");
+        exit(1);
+    }
+
+    int ok = connect(serverSocket, servinfo->ai_addr, servinfo->ai_addrlen);
+    if (ok == -1) {
+        perror("Client: connect");
+        exit(1);
+    }
+
+    char str[INET6_ADDRSTRLEN];
+	inet_ntop(servinfo->ai_family, get_in_addr((struct sockaddr *)servinfo->ai_addr),
+			str, sizeof str);
+	printf("client: connecting to %s\n", str);
+    freeaddrinfo(servinfo);
+
+    return serverSocket;
 }
 
 typedef struct _thread_cancel_args {

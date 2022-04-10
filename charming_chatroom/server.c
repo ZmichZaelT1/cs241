@@ -35,6 +35,23 @@ static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 void close_server() {
     endSession = 1;
     // add any additional flags here you want.
+    if (shutdown(serverSocket, SHUT_RDWR) != 0) {
+        perror("shutdown");
+    }
+    if (close(serverSocket) != 0) {
+        perror("close");
+    }
+
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        if (clients[i] != -1) {
+            if (shutdown(clients[i], SHUT_RDWR) != 0) {
+                perror("shutdown");
+            }
+            if (close(clients[i]) != 0) {
+                perror("close");
+            }
+        }
+    }
 }
 
 /**
@@ -58,6 +75,16 @@ void cleanup() {
     }
 }
 
+void *get_in_addr(struct sockaddr *sa)
+{
+	if (sa->sa_family == AF_INET) {
+		return &(((struct sockaddr_in*)sa)->sin_addr);
+	}
+
+	return &(((struct sockaddr_in6*)sa)->sin6_addr);
+}
+
+
 /**
  * Sets up a server connection.
  * Does not accept more than MAX_CLIENTS connections.  If more than MAX_CLIENTS
@@ -75,21 +102,80 @@ void cleanup() {
  *    - perror() for any other call
  */
 void run_server(char *port) {
-    /*QUESTION 1*/
-    /*QUESTION 2*/
-    /*QUESTION 3*/
+    struct addrinfo hints, *servinfo;
 
-    /*QUESTION 8*/
+    memset(&hints, 0, sizeof(hints));
 
-    /*QUESTION 4*/
-    /*QUESTION 5*/
-    /*QUESTION 6*/
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags = AI_PASSIVE;
 
-    /*QUESTION 9*/
+    int rv = getaddrinfo(NULL, port, &hints, &servinfo);
+    if (rv != 0) {
+        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
+    }
 
-    /*QUESTION 10*/
+    serverSocket = socket(servinfo->ai_family, servinfo->ai_socktype, servinfo->ai_protocol);
+    if (serverSocket == -1) {
+        perror("server: socket");
+        exit(1);
+    }
+    
+    int one = 1;
+    if (setsockopt(serverSocket, SOL_SOCKET, SO_REUSEPORT, &one, sizeof(int)) == -1) {
+        perror("setsockopt");
+        exit(1);
+    }
 
-    /*QUESTION 11*/
+    int ok = bind(serverSocket, servinfo->ai_addr, servinfo->ai_addrlen);
+    if (ok == -1) {
+        perror("Server: Bind");
+        exit(1);
+    }
+    puts("Connected!");
+
+	if (listen(serverSocket, MAX_CLIENTS) == -1) {
+		perror("listen");
+		exit(1);
+	}
+
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        clients[i] = -1;
+    }
+
+    pthread_t tid[MAX_CLIENTS];
+    socklen_t sin_size;
+    int new_fd;
+    while (!endSession) {
+        if (clientsCount > MAX_CLIENTS) {
+            continue;
+        }
+        struct sockaddr_storage their_addr;
+        sin_size = sizeof(their_addr);
+        new_fd = accept(serverSocket, (struct sockaddr *)&their_addr, &sin_size);
+        if (new_fd == -1) {
+            perror("accept");
+            exit(1);
+        }
+
+        intptr_t p = -1;
+        for (int i = 0; i < MAX_CLIENTS; i++) {
+            if (clients[i] == -1) {
+                clients[i] = new_fd;
+                char str[INET6_ADDRSTRLEN];
+                inet_ntop(their_addr.ss_family, get_in_addr((struct sockaddr *)&their_addr), str, sizeof(str));
+                printf("server: got connection from %s\n", str);
+                p = i;
+                break;
+            }
+        }
+        if (pthread_create(&tid[p], NULL, process_client, (void*)p)) {
+            perror("thread: create");
+            exit(1);
+        }
+        clientsCount++;
+    }
+    freeaddrinfo(servinfo);
 }
 
 /**
