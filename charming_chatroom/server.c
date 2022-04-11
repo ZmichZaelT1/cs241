@@ -35,12 +35,6 @@ static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 void close_server() {
     endSession = 1;
     // add any additional flags here you want.
-    if (shutdown(serverSocket, SHUT_RDWR) != 0) {
-        perror("shutdown");
-    }
-    if (close(serverSocket) != 0) {
-        perror("close");
-    }
 
     for (int i = 0; i < MAX_CLIENTS; i++) {
         if (clients[i] != -1) {
@@ -51,6 +45,12 @@ void close_server() {
                 perror("close");
             }
         }
+    }
+    if (shutdown(serverSocket, SHUT_RDWR) != 0) {
+        perror("shutdown");
+    }
+    if (close(serverSocket) != 0) {
+        perror("close");
     }
 }
 

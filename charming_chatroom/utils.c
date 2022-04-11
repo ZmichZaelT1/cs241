@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <errno.h>
 
 #include "utils.h"
 static const size_t MESSAGE_SIZE_DIGITS = 4;
