@@ -35,23 +35,6 @@ static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 void close_server() {
     endSession = 1;
     // add any additional flags here you want.
-
-    for (int i = 0; i < MAX_CLIENTS; i++) {
-        if (clients[i] != -1) {
-            if (shutdown(clients[i], SHUT_RDWR) != 0) {
-                perror("shutdown");
-            }
-            if (close(clients[i]) != 0) {
-                perror("close");
-            }
-        }
-    }
-    if (shutdown(serverSocket, SHUT_RDWR) != 0) {
-        perror("shutdown");
-    }
-    if (close(serverSocket) != 0) {
-        perror("close");
-    }
 }
 
 /**
@@ -146,6 +129,8 @@ void run_server(char *port) {
     pthread_t tid[MAX_CLIENTS];
     socklen_t sin_size;
     int new_fd;
+    freeaddrinfo(servinfo);
+    
     while (!endSession) {
         if (clientsCount > MAX_CLIENTS) {
             continue;
@@ -175,7 +160,6 @@ void run_server(char *port) {
         }
         clientsCount++;
     }
-    freeaddrinfo(servinfo);
 }
 
 /**

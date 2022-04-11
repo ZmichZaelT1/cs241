@@ -22,7 +22,7 @@ char *create_message(char *name, char *message) {
 }
 
 ssize_t get_message_size(int socket) {
-    int32_t size;
+    int32_t size = 0;
     ssize_t read_bytes =
         read_all_from_socket(socket, (char *)&size, MESSAGE_SIZE_DIGITS);
     if (read_bytes == 0 || read_bytes == -1)
@@ -43,7 +43,9 @@ ssize_t read_all_from_socket(int socket, char *buffer, size_t count) {
     size_t bytes_written = 0;
     while (bytes_written < count) {
         ssize_t bytes_read = read(socket, buffer + bytes_written, count - bytes_written);
-        if (bytes_read == -1 && errno != EINTR) {
+        if (bytes_read == 0) {
+            return 0;
+        } else if (bytes_read == -1 && errno != EINTR) {
             break;
         } else {
             bytes_written += bytes_read;
@@ -57,7 +59,9 @@ ssize_t write_all_to_socket(int socket, const char *buffer, size_t count) {
     size_t bytes_read = 0;
     while (bytes_read < count) {
         ssize_t bytes_written = write(socket, buffer + bytes_read, count - bytes_read);
-        if (bytes_written == -1 && errno != EINTR) {
+        if (bytes_written == 0) {
+            return 0;
+        } else if (bytes_written == -1 && errno != EINTR) {
             break;
         } else {
             bytes_read += bytes_written;
