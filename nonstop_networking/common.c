@@ -20,10 +20,11 @@ ssize_t read_all_from_socket(int socket, char *buffer, size_t count) {
     // Your Code Here
     size_t bytes_written = 0;
     while (bytes_written < count) {
-        ssize_t bytes_read = read(socket, buffer + bytes_written, count - bytes_written);
+        ssize_t bytes_read = recv(socket, buffer + bytes_written, count - bytes_written, 0);
         if (bytes_read == 0) {
             break;
         }
+
         if (bytes_read == -1 && errno == EINTR) {
             continue;
         }
@@ -31,6 +32,9 @@ ssize_t read_all_from_socket(int socket, char *buffer, size_t count) {
             return -1;
         }
         bytes_written += bytes_read;
+        // if (buffer[bytes_read] == '\177' || buffer[bytes_read] == '\000') {
+        //     break;
+        // }
     }
     return bytes_written;
 }

@@ -171,6 +171,7 @@ void *get_in_addr(struct sockaddr *sa) {
 void read_PUT() {
     char *ok = "OK\n";
     printf("%s", ok);
+    print_success();
 }
 
 void read_DELETE() {
@@ -184,6 +185,7 @@ void read_DELETE() {
 
     if (!strcmp(buf, ok)) { // if OK
         printf("%s", ok);
+        print_success();
     } else {
         read_error(buf);
     }
@@ -207,9 +209,12 @@ void read_LIST() {
             print_connection_closed();
             exit(1);
         }
-        
-        char *list_info = calloc(1, sizeof(char) * (message_size));
-        ssize_t info_bytes = read_all_from_socket(sock_fd, list_info, message_size);
+        printf("%zu\n", message_size);
+        // char *list_info = calloc(1, sizeof(char) * (message_size));
+
+        char list_info[message_size + 5];
+        memset(list_info, 0, message_size + 5);
+        ssize_t info_bytes = read_all_from_socket(sock_fd, list_info, message_size + 4);
         if (info_bytes == 0 || info_bytes == -1) {
             print_connection_closed();
             exit(1);
@@ -220,7 +225,7 @@ void read_LIST() {
             print_received_too_much_data();
             exit(1);
         }
-        printf("%zu%s", message_size, list_info);
+        printf("%s", list_info);
 
     } else { // if ERROR
         read_error(buf);
@@ -262,15 +267,15 @@ void read_GET(char *local) {
             } else {
                 should_read = message_size - bytes_read;
             }
-            char buffer[should_read+1];
-            size_t bytes_received = read_all_from_socket(sock_fd, buffer, should_read);
+            char buffer[should_read+5];
+            size_t bytes_received = read_all_from_socket(sock_fd, buffer, should_read + 4);
             if (bytes_received == 0) break;
-            if (bytes_received != should_read) {
-                print_connection_closed();
-                exit(1);
-            }
+            // if (bytes_received <= should_read) {
+            //     print_connection_closed();
+            //     exit(1);
+            // }
             fwrite(buffer, should_read, 1, fd);
-            bytes_read += should_read;
+            bytes_read += bytes_received;
         } 
         if (bytes_read < (ssize_t)message_size) {
             print_too_little_data();
