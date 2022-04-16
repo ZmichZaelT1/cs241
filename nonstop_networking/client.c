@@ -20,14 +20,18 @@
 char **parse_args(int argc, char **argv);
 verb check_args(char **args);
 void *get_in_addr(struct sockaddr*);
-void run_verb(char*, char*);
+void run_verb(char*, char*, char*);
+void run_PUT(char*, char*);
+void read_DELETE();
 void read_LIST();
+void read_PUT();
 void read_GET();
 void read_error(char*);
+void establishConnection(char*, char*);
 void closeConnection();
 
 static volatile int sock_fd = 0;
-static int packet_size = 1000;
+static size_t packet_size = 1000;
 
 int main(int argc, char **argv) {
     // Good luck!
@@ -44,52 +48,22 @@ int main(int argc, char **argv) {
     char *remote = args[3];
     char *local = args[4];
 
-
-    //////////////////////establish connection///////////////////////////
-    struct addrinfo hints, *servinfo;
-    memset(&hints, 0, sizeof(hints));
-    hints.ai_family = AF_INET;
-    hints.ai_socktype = SOCK_STREAM;
-    int rv = getaddrinfo(host, port, &hints, &servinfo);
-    if (rv != 0) {
-        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
-    }
-
-    sock_fd = socket(servinfo->ai_family, servinfo->ai_socktype, servinfo->ai_protocol);
-    if (sock_fd == -1) {
-        perror("client: socket");
-        exit(1);
-    }
-
-    int ok = connect(sock_fd, servinfo->ai_addr, servinfo->ai_addrlen);
-    if (ok == -1) {
-        perror("Client: connect");
-        exit(1);
-    }
-
-    // char str[INET6_ADDRSTRLEN];
-	// inet_ntop(servinfo->ai_family, get_in_addr((struct sockaddr *)servinfo->ai_addr),
-	// 		str, sizeof str);
-	// fprintf(stderr, "client: connecting to %s\n", str);
-    LOG("connecting");
-    freeaddrinfo(servinfo); 
-    //////////////////////establish connection///////////////////////////
-
-
+    establishConnection(host, port);
 
     if (v == GET) {
-        run_verb(v_c, remote);
+        run_verb(v_c, remote, local);
         LOG("GET!");
         read_GET(local);
     } else if (v == PUT) {
-        // run_PUT();
+        run_verb(v_c, remote, local);
         LOG("PUT!");
+        read_PUT();
     } else if (v == DELETE) {
-        // run_DELETE();
+        run_verb(v_c, remote, local);
         LOG("DELETE!");
-    } else 
-    if (v == LIST) {
-        run_verb(v_c, remote);
+        read_DELETE();
+    } else if (v == LIST) {
+        run_verb(v_c, remote, local);
         LOG("LIST!");
         read_LIST();
     }
@@ -194,6 +168,28 @@ void *get_in_addr(struct sockaddr *sa) {
 	return &(((struct sockaddr_in6*)sa)->sin6_addr);
 }
 
+void read_PUT() {
+    char *ok = "OK\n";
+    printf("%s", ok);
+}
+
+void read_DELETE() {
+    char *ok = "OK\n";
+    char *buf = calloc(1, strlen(ok) + 1);
+    ssize_t bytes_read = read_all_from_socket(sock_fd, buf, strlen(ok));
+    if (bytes_read != (ssize_t)strlen(ok)) {
+        print_connection_closed();
+        exit(1);
+    }
+
+    if (!strcmp(buf, ok)) { // if OK
+        printf("%s", ok);
+    } else {
+        read_error(buf);
+    }
+    free(buf);
+}
+
 void read_LIST() {
     char *ok = "OK\n";
     char *buf = calloc(1, strlen(ok) + 1);
@@ -230,25 +226,6 @@ void read_LIST() {
         read_error(buf);
     }
     free(buf);
-}
-
-void run_verb(char *v, char *file) {
-    if (!strcmp(v, "LIST")) {
-        char *request = "LIST\n";
-        ssize_t bytes_written = write_all_to_socket(sock_fd, request, strlen(request));
-        if (bytes_written != (ssize_t)strlen(request)) {
-            print_connection_closed();
-            exit(1);
-        }
-    } else {
-        char request[3 + strlen(v) + strlen(file)];
-        sprintf(request, "%s %s\n", v, file);
-        ssize_t bytes_written = write_all_to_socket(sock_fd, request, strlen(request));
-        if (bytes_written != (ssize_t)strlen(request)) {
-            print_connection_closed();
-            exit(1);
-        }
-    }
 }
 
 void read_GET(char *local) {
@@ -322,6 +299,7 @@ void read_error(char *buf) {
     if (strcmp(buf, error)) {
         print_invalid_response();
     } else {
+        printf("%s", buf);
         char *errorMessage = calloc(1, sizeof(char) * 100);
         ssize_t bytes_read = read_all_from_socket(sock_fd, errorMessage, sizeof(char) * 100);
         if (bytes_read != (ssize_t)strlen(errorMessage)) {
@@ -331,6 +309,102 @@ void read_error(char *buf) {
         print_error_message(errorMessage);
         free(errorMessage);
     }
+}
+
+void run_verb(char *v, char *remote, char *local) {
+    if (!strcmp(v, "LIST")) {
+        char *request = "LIST\n";
+        ssize_t bytes_written = write_all_to_socket(sock_fd, request, strlen(request));
+        if (bytes_written != (ssize_t)strlen(request)) {
+            print_connection_closed();
+            exit(1);
+        }
+    } else if (!strcmp(v, "PUT")) {
+        run_PUT(remote, local);
+    } else {
+        char request[3 + strlen(v) + strlen(remote)];
+        sprintf(request, "%s %s\n", v, remote);
+        ssize_t bytes_written = write_all_to_socket(sock_fd, request, strlen(request));
+        if (bytes_written != (ssize_t)strlen(request)) {
+            print_connection_closed();
+            exit(1);
+        }
+    }
+}
+
+void run_PUT(char *remote, char *local) {
+    FILE *fd;
+    fd = fopen(local, "r");
+    if (!fd) {
+        perror("file open");
+        exit(1);
+    }
+    fseek(fd, 0L, SEEK_END);
+    size_t fsize = ftell(fd);
+    rewind(fd);
+    
+    char *put = "PUT ";
+    size_t request_size = strlen(put)+strlen(remote)+1;
+    char request[request_size];
+    sprintf(request, "%s%s\n", put, remote);
+    // printf("%s", request);
+    ssize_t s1 = write_all_to_socket(sock_fd, request, strlen(request));
+    ssize_t s2 = write_all_to_socket(sock_fd, (char*)&fsize, sizeof(fsize));
+
+    if (s1+s2 != (ssize_t)request_size + (ssize_t)sizeof(fsize)) {
+        print_connection_closed();
+        exit(1);
+    }
+
+    size_t uploaded_size = 0;
+    size_t should_write;
+    while (uploaded_size < fsize) {
+        if (fsize - uploaded_size > packet_size) {
+            should_write = packet_size;
+        } else {
+            should_write = fsize - uploaded_size;
+        }
+
+        char buffer[should_write + 1];
+        fread(buffer, 1, should_write, fd);
+        ssize_t bytes_written = write_all_to_socket(sock_fd, buffer, should_write);
+        if (bytes_written != (ssize_t)should_write) {
+            print_connection_closed();
+            exit(1);
+        }
+        uploaded_size += should_write;
+    }
+    fclose(fd);
+}
+
+void establishConnection(char *host, char *port) {
+    struct addrinfo hints, *servinfo;
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+    int rv = getaddrinfo(host, port, &hints, &servinfo);
+    if (rv != 0) {
+        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
+    }
+
+    sock_fd = socket(servinfo->ai_family, servinfo->ai_socktype, servinfo->ai_protocol);
+    if (sock_fd == -1) {
+        perror("client: socket");
+        exit(1);
+    }
+
+    int ok = connect(sock_fd, servinfo->ai_addr, servinfo->ai_addrlen);
+    if (ok == -1) {
+        perror("Client: connect");
+        exit(1);
+    }
+
+    // char str[INET6_ADDRSTRLEN];
+	// inet_ntop(servinfo->ai_family, get_in_addr((struct sockaddr *)servinfo->ai_addr),
+	// 		str, sizeof str);
+	// fprintf(stderr, "client: connecting to %s\n", str);
+    LOG("connecting");
+    freeaddrinfo(servinfo); 
 }
 
 void closeConnection() {
