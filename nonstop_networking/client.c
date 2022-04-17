@@ -209,7 +209,7 @@ void read_LIST() {
             print_connection_closed();
             exit(1);
         }
-        printf("%zu\n", message_size);
+        printf("%zu", message_size);
         // char *list_info = calloc(1, sizeof(char) * (message_size));
 
         char list_info[message_size + 5];
@@ -261,21 +261,22 @@ void read_GET(char *local) {
 
         bytes_read = 0;
         size_t should_read;
-        while (bytes_read < (ssize_t)message_size) {
-            if (message_size - bytes_read > (size_t)packet_size) {
+        while (bytes_read < (ssize_t)message_size + 5) {
+            if (message_size + 5 - bytes_read > (size_t)packet_size) {
                 should_read = packet_size;
             } else {
-                should_read = message_size - bytes_read;
+                should_read = message_size + 5 - bytes_read;
             }
-            char buffer[should_read+5];
-            size_t bytes_received = read_all_from_socket(sock_fd, buffer, should_read + 4);
-            if (bytes_received == 0) break;
+            char buffer[packet_size+1];
+            size_t bytes_received = read_all_from_socket(sock_fd, buffer, should_read);
+            
             // if (bytes_received <= should_read) {
             //     print_connection_closed();
             //     exit(1);
             // }
-            fwrite(buffer, should_read, 1, fd);
+            fwrite(buffer, bytes_received, 1, fd);
             bytes_read += bytes_received;
+            if (bytes_received == 0) break;
         } 
         if (bytes_read < (ssize_t)message_size) {
             print_too_little_data();
