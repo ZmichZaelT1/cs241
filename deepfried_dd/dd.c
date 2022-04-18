@@ -17,12 +17,13 @@ static size_t total_bytes_copied = 0;
 static clock_t start_time;
 
 void sig_handler() {
-    print_status_report(full_blocks_in, partial_blocks_in, full_blocks_out, full_blocks_out, total_bytes_copied, (start_time - clock()) / CLOCKS_PER_SEC);
+    print_status_report(full_blocks_in, partial_blocks_in, full_blocks_out, partial_blocks_out, total_bytes_copied, (start_time - clock()) / CLOCKS_PER_SEC);
 }
 
 int main(int argc, char **argv) {
     int opt;
-    char *i, *o;
+    char *i = 0;
+    char *o = 0;
     size_t block_size = 512;
     int block_num = -1;
     int block_skip_i = 0;
@@ -117,7 +118,7 @@ int main(int argc, char **argv) {
         total_bytes_copied += bytes_write;
     }
     clock_t end_time = clock();
-    print_status_report(full_blocks_in, partial_blocks_in, full_blocks_out, partial_blocks_out, total_bytes_copied, (start_time - end_time) / CLOCKS_PER_SEC);
+    print_status_report(full_blocks_in, partial_blocks_in, full_blocks_out, partial_blocks_out, total_bytes_copied, (double)(end_time - start_time) / CLOCKS_PER_SEC);
     
     return 0;
 }
