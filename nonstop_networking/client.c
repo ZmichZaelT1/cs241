@@ -214,6 +214,9 @@ void read_LIST() {
 
         char list_info[message_size + 5];
         memset(list_info, 0, message_size + 5);
+        if (message_size == 0) {
+            return;
+        }
         ssize_t info_bytes = read_all_from_socket(sock_fd, list_info, message_size + 4);
         if (info_bytes == 0 || info_bytes == -1) {
             print_connection_closed();
