@@ -18,6 +18,7 @@
 #include <unistd.h>
 #include <sys/epoll.h>
 #include <math.h>
+#include <signal.h>
 #include "./includes/dictionary.h"
 #include "./includes/vector.h"
 
@@ -38,6 +39,10 @@ void process_client(int);
 void parse_header(client_info*);
 void run_LIST(client_info*);
 void run_PUT(client_info*);
+void run_GET(client_info*);
+void run_DELETE(client_info*);
+void read_until_new_line(int, char*);
+void sig_handler();
 
 static int serverSocket;
 static char *server_dir;
@@ -52,6 +57,12 @@ int main(int argc, char **argv) {
         print_server_usage();
         exit(1);
     }
+
+    struct sigaction sa;
+    memset(&sa, 0, sizeof(sa));
+    sa.sa_handler = sig_handler;
+    sigaction(SIGINT, &sa, NULL);
+
     char *port = argv[1];
     establishConnection(port);
     char dir[] = "XXXXXX";
@@ -114,12 +125,21 @@ void process_client(int fd) {
             run_LIST(client);
         } else if (client->v == PUT) {
             run_PUT(client);
+        } else if (client->v == GET) {
+            run_GET(client);
+        } else if (client->v == DELETE) {
+            run_DELETE(client);
+        } else {
+            char *error = "ERROR\n";
+            write_all_to_socket(client->fd, error, strlen(error));
+            char *error_msg = "Bad request";
+            write_all_to_socket(client->fd, error_msg, strlen(error_msg));
         }
     } else if (client->state == 2){
         //done
         epoll_ctl(epfd, EPOLL_CTL_DEL, client->fd, NULL);
-        free(client);
         dictionary_remove(clients, &client->fd);
+        free(client);
         shutdown(client->fd, SHUT_RDWR);
         close(client->fd);
     }
@@ -134,19 +154,23 @@ void parse_header(client_info *client) {
 
     char *request_method = calloc(30, sizeof(char));
     // read_all_from_socket(client->fd, request_method, 30);
-    recv(client->fd, request_method, 30, 0);
+    // recv(client->fd, request_method, 30, 0);
+    read_until_new_line(client->fd, request_method);
 
     if (!strncmp(request_method, "LIST", 4)) {
         client->v = LIST;
     } else if (!strncmp(request_method, "GET", 3)) {
         client->v = GET;
         strcpy(client->filename, request_method + 4);
+        client->filename[strlen(client->filename)-1] = 0;
     } else if (!strncmp(request_method, "DELETE", 6)) {
         client->v = DELETE;
         strcpy(client->filename, request_method + 7);
+        client->filename[strlen(client->filename)-1] = 0;
     } else if (!strncmp(request_method, "PUT", 3)) {
         client->v = PUT;
         strcpy(client->filename, request_method + 4);
+        client->filename[strlen(client->filename)-1] = 0;
         ///
     } else {
         client->state = -1;
@@ -190,7 +214,7 @@ void run_PUT(client_info *client) {
     FILE *receiver_fd;
     char file_path[100];
     sprintf(file_path, "%s/%s", server_dir, client->filename);
-    receiver_fd = fopen(client->filename, "w+");
+    receiver_fd = fopen(file_path, "w+");
     if (!receiver_fd) {
         perror("fopen");
     }
@@ -206,6 +230,7 @@ void run_PUT(client_info *client) {
         total_read += bytes_read;
         if (bytes_read == 0) break;
     }
+    fclose(receiver_fd);
 
     if (total_read != message_size) {
         remove(file_path);
@@ -233,8 +258,84 @@ void run_PUT(client_info *client) {
     if (write_ok_b != 3) {
         perror("write");
     }
+    client->state = 2;
 }
 
+void run_GET(client_info *client) {
+    FILE *request_file;
+    char file_path[100];
+    sprintf(file_path, "%s/%s", server_dir, client->filename);
+    request_file = fopen(file_path, "r");
+    if (!request_file) {
+        perror("fopen");
+        char *error = "ERROR\n";
+        write_all_to_socket(client->fd, error, strlen(error));
+        char *error_msg = "No such file";
+        write_all_to_socket(client->fd, error_msg, strlen(error_msg));
+        client->state = 2;
+        return;
+    }
+
+    size_t write_ok_b = write_all_to_socket(client->fd, "OK\n", 3);
+    if (write_ok_b != 3) {
+        perror("write");
+    }
+
+    fseek(request_file, 0L, SEEK_END);
+    size_t message_size = ftell(request_file);
+    rewind(request_file);
+
+    write_all_to_socket(client->fd, (char*)&message_size, sizeof(message_size));
+
+    size_t bytes_sent = 0;
+    size_t should_send;
+    while(bytes_sent < message_size) {
+        should_send = fmin(PACKET_SIZE, message_size - bytes_sent);
+        char buffer[should_send + 1];
+        fread(buffer, 1, should_send, request_file);
+        write_all_to_socket(client->fd, buffer, should_send);
+        bytes_sent += should_send;
+    }
+    fclose(request_file);
+    client->state = 2;
+}
+
+void run_DELETE(client_info *client) {
+    char file_path[100];
+    sprintf(file_path, "%s/%s", server_dir, client->filename);
+    if (remove(file_path) == -1) {
+        char *error = "ERROR\n";
+        write_all_to_socket(client->fd, error, strlen(error));
+        char *error_msg = "No such file";
+        write_all_to_socket(client->fd, error_msg, strlen(error_msg));
+        client->state = 2;
+        return;
+    }
+
+    size_t write_ok_b = write_all_to_socket(client->fd, "OK\n", 3);
+    if (write_ok_b != 3) {
+        perror("write");
+    }
+
+    size_t i = 0;
+    VECTOR_FOR_EACH(file_vec, file, {
+        if (!strcmp(file, client->filename)) {
+            vector_erase(file_vec, i);
+            break;
+        }
+        i++;
+    });
+    client->state = 2;
+
+
+}
+
+void read_until_new_line(int socket, char *buffer) {
+    size_t bytes_read = 0;
+    while(buffer[bytes_read-1] != '\n') {
+        bytes_read += read(socket, buffer + bytes_read, 1);
+    }
+}
 
 void establishConnection(char *port) {
     struct addrinfo hints, *servinfo;
@@ -282,4 +383,21 @@ void *get_in_addr(struct sockaddr *sa) {
 	}
 
 	return &(((struct sockaddr_in6*)sa)->sin6_addr);
+}
+
+void sig_handler() {
+    vector *tmp = dictionary_values(clients);
+    printf("is empty: %d", vector_empty(tmp));
+    VECTOR_FOR_EACH(tmp, t, {free(t);});
+    vector_destroy(tmp);
+    dictionary_destroy(clients);
+    char file_path[100];
+    VECTOR_FOR_EACH(file_vec, file, {
+        sprintf(file_path, "%s/%s", server_dir, file);
+        remove(file_path);
+    });
+    vector_destroy(file_vec);
+    remove(server_dir);
+    close(epfd);
+    exit(1);
 }
