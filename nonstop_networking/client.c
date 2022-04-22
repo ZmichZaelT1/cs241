@@ -35,6 +35,7 @@ static size_t packet_size = 1000;
 
 int main(int argc, char **argv) {
     // Good luck!
+    fork();
     if (argc < 3) {
         print_client_usage();
         return 0;
@@ -306,6 +307,7 @@ void read_error(char *buf) {
 
 
     if (strcmp(buf, error)) {
+        puts("hi");
         print_invalid_response();
     } else {
         printf("%s", buf);
@@ -351,6 +353,8 @@ void run_PUT(char *remote, char *local) {
     fseek(fd, 0L, SEEK_END);
     size_t fsize = ftell(fd);
     rewind(fd);
+
+    // size_t test = 100;
     
     char *put = "PUT ";
     size_t request_size = strlen(put)+strlen(remote)+1;

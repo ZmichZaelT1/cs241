@@ -43,12 +43,14 @@ void run_GET(client_info*);
 void run_DELETE(client_info*);
 void read_until_new_line(int, char*);
 void sig_handler();
+void sigpipe_handler();
 
 static int serverSocket;
 static char *server_dir;
 static int epfd;
 static dictionary *clients;
 static vector *file_vec;
+static struct epoll_event *evs;
 
 
 int main(int argc, char **argv) {
@@ -62,6 +64,8 @@ int main(int argc, char **argv) {
     memset(&sa, 0, sizeof(sa));
     sa.sa_handler = sig_handler;
     sigaction(SIGINT, &sa, NULL);
+
+    signal(SIGPIPE, sigpipe_handler);
 
     char *port = argv[1];
     establishConnection(port);
@@ -78,7 +82,7 @@ int main(int argc, char **argv) {
         exit(1);
     }
     struct epoll_event ev;
-    struct epoll_event *evs;
+    // struct epoll_event *evs;
     ev.events = EPOLLIN;
     ev.data.fd = serverSocket;
     if (epoll_ctl(epfd, EPOLL_CTL_ADD, serverSocket, &ev) == -1) {
@@ -92,9 +96,11 @@ int main(int argc, char **argv) {
         socklen_t sin_size = sizeof(their_addr);
         int num_tasks;
         num_tasks = epoll_wait(epfd, evs, MAXEVENTS, -1);
+        fprintf(stderr, "epoll_wait return: %d\n", num_tasks);
         for (int i = 0; i < num_tasks; i++) {
             if (evs[i].data.fd == serverSocket) {
                 int newfd = accept(serverSocket, (struct sockaddr *)&their_addr, &sin_size);
+                fprintf(stderr, "(fd=%d) Accepted new connection\n", newfd);
                 if (newfd == -1) {
                     perror("accept");
                     exit(1);
@@ -137,11 +143,12 @@ void process_client(int fd) {
         }
     } else if (client->state == 2){
         //done
+        fprintf(stderr, "(fd=%d) finished, shutting it done\n", client->fd);
         epoll_ctl(epfd, EPOLL_CTL_DEL, client->fd, NULL);
         dictionary_remove(clients, &client->fd);
-        free(client);
         shutdown(client->fd, SHUT_RDWR);
         close(client->fd);
+        free(client);
     }
 }
 
@@ -171,6 +178,7 @@ void parse_header(client_info *client) {
         client->v = PUT;
         strcpy(client->filename, request_method + 4);
         client->filename[strlen(client->filename)-1] = 0;
+        fprintf(stderr, "(fd=%d) PUT requested for '%s'\n", client->fd, client->filename);
         ///
     } else {
         client->state = -1;
@@ -207,6 +215,7 @@ void run_LIST(client_info *client) {
 void run_PUT(client_info *client) {
     size_t message_size;
     size_t read_b = read_all_from_socket(client->fd, (char*)&message_size, sizeof(size_t));
+    fprintf(stderr, "(fd=%d) file size %zu bytes\n", client->fd, message_size);
     if (read_b != sizeof(size_t)) {
         perror("read");
     }
@@ -225,6 +234,7 @@ void run_PUT(client_info *client) {
     while (total_read < message_size + 5) {
         should_read = fmin(PACKET_SIZE, message_size + 5 - total_read);
         char buffer[PACKET_SIZE+1];
+        fprintf(stderr, "(fd=%d) Reading binary data from request\n", client->fd);
         bytes_read = read_all_from_socket(client->fd, buffer, should_read);
         fwrite(buffer, bytes_read, 1, receiver_fd);
         total_read += bytes_read;
@@ -254,10 +264,14 @@ void run_PUT(client_info *client) {
         vector_push_back(file_vec, client->filename);
     }
 
-    size_t write_ok_b = write_all_to_socket(client->fd, "OK\n", 3);
-    if (write_ok_b != 3) {
-        perror("write");
-    }
+    fprintf(stderr, "(fd=%d) Writing header for response OK\n", client->fd);
+    // size_t write_ok_b = write_all_to_socket(client->fd, "OK\n", 3);
+    // if (write_ok_b != 3) {
+    //     perror("write");
+    // }
+    write(client->fd, "OK\n", 3);
+
+    fprintf(stderr, "(fd=%d) Finished writing response\n", client->fd);
     client->state = 2;
 }
 
@@ -326,14 +340,14 @@ void run_DELETE(client_info *client) {
         i++;
     });
     client->state = 2;
-
-
 }
 
 void read_until_new_line(int socket, char *buffer) {
     size_t bytes_read = 0;
     while(buffer[bytes_read-1] != '\n') {
-        bytes_read += read(socket, buffer + bytes_read, 1);
+        size_t s = read(socket, buffer + bytes_read, 1);
+        bytes_read += s;
+        if (s == 0) break;
     }
 }
 
@@ -399,5 +413,11 @@ void sig_handler() {
     vector_destroy(file_vec);
     remove(server_dir);
     close(epfd);
+    free(evs);
     exit(1);
 }
+
+void sigpipe_handler() {}
+
+// TODO: detects too much/little data 
+// Tests that we can PUT large files with 2 clients (
