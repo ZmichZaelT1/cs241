@@ -389,6 +389,7 @@ void establishConnection(char *port) {
 		perror("listen");
 		exit(1);
 	}
+    freeaddrinfo(servinfo);
 }
 
 void *get_in_addr(struct sockaddr *sa) {
