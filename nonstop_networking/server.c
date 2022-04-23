@@ -82,6 +82,7 @@ int main(int argc, char **argv) {
         exit(1);
     }
     struct epoll_event ev;
+    memset(&ev, 0, sizeof(ev));
     // struct epoll_event *evs;
     ev.events = EPOLLIN;
     ev.data.fd = serverSocket;
@@ -106,6 +107,7 @@ int main(int argc, char **argv) {
                     exit(1);
                 }
                 struct epoll_event new_ev;
+                memset(&new_ev, 0, sizeof(new_ev));
                 new_ev.events = EPOLLIN;
                 new_ev.data.fd = newfd;
                 if (epoll_ctl(epfd, EPOLL_CTL_ADD, newfd, &new_ev) == -1) {
@@ -155,6 +157,7 @@ void process_client(int fd) {
 void parse_header(client_info *client) {
     client->state = 1;
     struct epoll_event e;
+    memset(&e, 0, sizeof(e));
     e.events = EPOLLOUT;
     e.data.fd = client->fd;
     epoll_ctl(epfd, EPOLL_CTL_MOD, client->fd, &e);
@@ -344,8 +347,9 @@ void run_DELETE(client_info *client) {
 
 void read_until_new_line(int socket, char *buffer) {
     size_t bytes_read = 0;
-    while(buffer[bytes_read-1] != '\n') {
+    while(1) {
         size_t s = read(socket, buffer + bytes_read, 1);
+        if (buffer[bytes_read] == '\n') break;
         bytes_read += s;
         if (s == 0) break;
     }
