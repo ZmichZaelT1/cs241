@@ -35,7 +35,7 @@ static size_t packet_size = 1000;
 
 int main(int argc, char **argv) {
     // Good luck!
-    fork();
+    // fork();
     if (argc < 3) {
         print_client_usage();
         return 0;

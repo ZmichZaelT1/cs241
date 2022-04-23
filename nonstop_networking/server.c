@@ -231,10 +231,10 @@ void run_PUT(client_info *client) {
     size_t total_read = 0;
     size_t bytes_read;
     size_t should_read;
+    fprintf(stderr, "(fd=%d) Reading binary data from request\n", client->fd);
     while (total_read < message_size + 5) {
         should_read = fmin(PACKET_SIZE, message_size + 5 - total_read);
         char buffer[PACKET_SIZE+1];
-        fprintf(stderr, "(fd=%d) Reading binary data from request\n", client->fd);
         bytes_read = read_all_from_socket(client->fd, buffer, should_read);
         fwrite(buffer, bytes_read, 1, receiver_fd);
         total_read += bytes_read;
