@@ -40,7 +40,7 @@ int main(int argc, char **argv) {
     exit(1);
   }
 
-  if (strncmp((char*)addr, "BTRE", 4)) {
+  if (strncmp((char*)addr, BINTREE_HEADER_STRING, 4)) {
     formatFail(argv[1]);
     exit(1);
   }
