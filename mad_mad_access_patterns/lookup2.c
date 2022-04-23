@@ -37,12 +37,12 @@ int main(int argc, char **argv) {
   void *addr = mmap(NULL, s.st_size, PROT_READ, MAP_SHARED, fd, 0);
   if (addr == MAP_FAILED) {
     mmapFail(argv[1]);
-    exit(1);
+    exit(3);
   }
 
   if (strncmp((char*)addr, BINTREE_HEADER_STRING, 4)) {
     formatFail(argv[1]);
-    exit(1);
+    exit(2);
   }
 
   for (int i = 2; i < argc; i++) {

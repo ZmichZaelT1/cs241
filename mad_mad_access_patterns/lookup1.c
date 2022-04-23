@@ -32,7 +32,7 @@ int main(int argc, char **argv) {
   
   if (strcmp(header, BINTREE_HEADER_STRING)) {
     formatFail(argv[1]);
-    exit(1);
+    exit(2);
   }
 
   for (int i = 2; i < argc; i++) {
