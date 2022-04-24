@@ -67,7 +67,7 @@ int binary_search(char *addr, char *target, uint32_t off) {
     }
   } else if (res < 0) {
     if (node->right_child) {
-      if (binary_search(addr, target, node->left_child)) return 1;
+      if (binary_search(addr, target, node->right_child)) return 1;
     }
   }
   return 0;
