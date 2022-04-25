@@ -171,8 +171,20 @@ void *get_in_addr(struct sockaddr *sa) {
 
 void read_PUT() {
     char *ok = "OK\n";
-    printf("%s", ok);
-    print_success();
+    char *buf = calloc(1, strlen(ok) + 1);
+    ssize_t bytes_read = read_all_from_socket(sock_fd, buf, strlen(ok));
+    if (bytes_read != (ssize_t)strlen(ok)) {
+        print_connection_closed();
+        exit(1);
+    }
+
+    if (!strcmp(buf, ok)) { // if OK
+        printf("%s", ok);
+        print_success();
+    } else {
+        read_error(buf);
+    }
+    free(buf);
 }
 
 void read_DELETE() {
@@ -307,7 +319,6 @@ void read_error(char *buf) {
 
 
     if (strcmp(buf, error)) {
-        puts("hi");
         print_invalid_response();
     } else {
         printf("%s", buf);
@@ -354,7 +365,7 @@ void run_PUT(char *remote, char *local) {
     size_t fsize = ftell(fd);
     rewind(fd);
 
-    // size_t test = 100;
+    // size_t test = 1000000000000000000;
     
     char *put = "PUT ";
     size_t request_size = strlen(put)+strlen(remote)+1;
@@ -381,12 +392,16 @@ void run_PUT(char *remote, char *local) {
         char buffer[should_write + 1];
         fread(buffer, 1, should_write, fd);
         ssize_t bytes_written = write_all_to_socket(sock_fd, buffer, should_write);
-        if (bytes_written != (ssize_t)should_write) {
-            print_connection_closed();
-            exit(1);
-        }
+        // if (bytes_written != (ssize_t)should_write) {
+        //     print_connection_closed();
+        //     exit(1);
+        // }
         uploaded_size += should_write;
+        if (bytes_written == 0) {
+            break;
+        }
     }
+    shutdown(sock_fd, SHUT_WR);
     fclose(fd);
 }
 
@@ -422,7 +437,7 @@ void establishConnection(char *host, char *port) {
 
 void closeConnection() {
     if (shutdown(sock_fd, SHUT_RDWR) != 0) {
-        perror("shutdown");
+        // perror("shutdown");
     }
     if (close(sock_fd) != 0) {
         perror("close");

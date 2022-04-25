@@ -167,17 +167,17 @@ void parse_header(client_info *client) {
     // recv(client->fd, request_method, 30, 0);
     read_until_new_line(client->fd, request_method);
 
-    if (!strncmp(request_method, "LIST", 4)) {
+    if (strlen(request_method) == 5 && !strncmp(request_method, "LIST", 4)) {
         client->v = LIST;
-    } else if (!strncmp(request_method, "GET", 3)) {
+    } else if (!strncmp(request_method, "GET ", 4)) {
         client->v = GET;
         strcpy(client->filename, request_method + 4);
         client->filename[strlen(client->filename)-1] = 0;
-    } else if (!strncmp(request_method, "DELETE", 6)) {
+    } else if (!strncmp(request_method, "DELETE ", 7)) {
         client->v = DELETE;
         strcpy(client->filename, request_method + 7);
         client->filename[strlen(client->filename)-1] = 0;
-    } else if (!strncmp(request_method, "PUT", 3)) {
+    } else if (!strncmp(request_method, "PUT ", 4)) {
         client->v = PUT;
         strcpy(client->filename, request_method + 4);
         client->filename[strlen(client->filename)-1] = 0;
@@ -247,7 +247,7 @@ void run_PUT(client_info *client) {
 
     if (total_read != message_size) {
         remove(file_path);
-        client->state = -1;
+        client->state = 2;
         char *error = "ERROR\n";
         write_all_to_socket(client->fd, error, strlen(error));
         char *error_msg = "Bad file size";
